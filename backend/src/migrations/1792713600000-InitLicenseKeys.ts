@@ -21,19 +21,24 @@ export class InitLicenseKeys1792713600000 implements MigrationInterface {
 
     // 과거 버전에서 생성된 컬럼 레벨 UNIQUE(key) 제약이 남아 있으면 지운다.
     // (이 제약이 있으면 소프트 삭제된 키를 다시 등록할 수 없다)
+    // 옛 initSchema는 테이블의 UNIQUE 제약 아무거나 하나만 지웠다. 여기서는 key 한 컬럼에 걸린 UNIQUE만
+    // 골라 모두 지우고, 다른 컬럼에 걸린 UNIQUE는 그대로 둔다.
     await queryRunner.query(`
       DO $$
       DECLARE
-        con_name text;
+        con record;
       BEGIN
-        SELECT conname INTO con_name
-        FROM pg_constraint
-        WHERE conrelid = 'license_keys'::regclass
-          AND contype = 'u';
-
-        IF con_name IS NOT NULL THEN
-          EXECUTE format('ALTER TABLE LICENSE_KEYS DROP CONSTRAINT %I', con_name);
-        END IF;
+        FOR con IN
+          SELECT c.conname
+          FROM pg_constraint c
+          JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+          WHERE c.conrelid = 'license_keys'::regclass
+            AND c.contype = 'u'
+            AND cardinality(c.conkey) = 1
+            AND a.attname = 'key'
+        LOOP
+          EXECUTE format('ALTER TABLE LICENSE_KEYS DROP CONSTRAINT %I', con.conname);
+        END LOOP;
       END $$
     `);
 

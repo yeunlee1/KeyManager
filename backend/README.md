@@ -107,7 +107,8 @@ DB 이름이 `keymanager_test`가 아니면 시험이 시작되지 않으므로 
 `synchronize`는 꺼 두었다(엔티티에 없는 `search_vector` 컬럼을 지울 수 있어서).
 
 첫 마이그레이션(`InitLicenseKeys`)이 만드는 스키마는 아래와 같다. 옛 Express 서버가 이미 만든 DB에서도
-안전하게 돌도록 모든 단계가 "없으면 만들기"라서, 기존 테이블과 데이터는 그대로 두고 옛 컬럼 레벨 UNIQUE 제약만 지운다.
+안전하게 돌도록 모든 단계가 "없으면 만들기"라서, 기존 테이블과 데이터는 그대로 두고 `key` 컬럼에 걸린 옛 UNIQUE 제약만 지운다
+(다른 컬럼에 걸린 UNIQUE 제약은 건드리지 않는다).
 
 ```sql
 CREATE TABLE IF NOT EXISTS LICENSE_KEYS (

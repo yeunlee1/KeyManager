@@ -85,6 +85,19 @@ describe("InitLicenseKeys 마이그레이션", () => {
     expect(columns).toHaveLength(1);
   });
 
+  it("key에 걸린 UNIQUE는 여러 개라도 모두 지우고, 다른 컬럼의 UNIQUE는 그대로 둔다", async () => {
+    await ds.query(LEGACY_DDL);
+    await ds.query("ALTER TABLE license_keys ADD CONSTRAINT license_keys_key_extra UNIQUE (key)");
+    await ds.query("ALTER TABLE license_keys ADD CONSTRAINT license_keys_version_uq UNIQUE (version)");
+
+    await ds.runMigrations();
+
+    const rows: { conname: string }[] = await ds.query(
+      "SELECT conname FROM pg_constraint WHERE conrelid = 'license_keys'::regclass AND contype = 'u' ORDER BY conname",
+    );
+    expect(rows.map((r) => r.conname)).toEqual(["license_keys_version_uq"]);
+  });
+
   it("삭제된 키와 같은 키는 다시 넣을 수 있고, 살아 있는 키와 같은 키는 23505로 막힌다", async () => {
     await ds.runMigrations();
     await ds.query("INSERT INTO license_keys (key) VALUES ('SAME-KEY')");

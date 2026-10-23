@@ -170,6 +170,13 @@ describe("라이선스 API (/items)", () => {
       expect(await listKeys({ limit: "-5" })).toEqual(["P-01"]);
       expect(await listKeys({ page: "99" })).toEqual([]);
     });
+
+    it("limit 상한 100은 실제로 걸리고 total은 전체 개수를 돌려준다", async () => {
+      await seed(Array.from({ length: 105 }, (_, i) => ({ key: `CAP-${String(i).padStart(3, "0")}` })));
+      const res = await request(http).get("/items").query({ limit: "9999" }).expect(200);
+      expect(res.body.items).toHaveLength(100);
+      expect(res.body.total).toBe(105);
+    });
   });
 
   describe("GET /items/category-stats", () => {
