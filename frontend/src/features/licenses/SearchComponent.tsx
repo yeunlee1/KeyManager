@@ -43,15 +43,15 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ onSearch }) => {
           onChange={setFilterOption}
           options={FILTER_OPTIONS}
           aria-label="검색 필드 선택"
-          className="w-24 flex-shrink-0 border-none bg-transparent"
+          className="w-24 shrink-0 border-none bg-transparent"
         />
 
         {/* 구분선 */}
         <div className="w-px h-5 bg-slate-300 mx-2 self-center dark:bg-white/10" />
 
         {/* 검색 입력 */}
-        <div className="flex-grow flex items-center px-1 min-w-0">
-          <Search size={16} className="text-slate-400 mr-2 flex-shrink-0 dark:text-slate-500" />
+        <div className="grow flex items-center px-1 min-w-0">
+          <Search size={16} className="text-slate-400 mr-2 shrink-0 dark:text-slate-500" />
           <input
             type="text"
             placeholder="키 / 사용자 검색"
@@ -59,13 +59,13 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ onSearch }) => {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full min-w-0 bg-transparent border-none outline-none text-sm text-slate-800 placeholder:text-slate-400 font-medium dark:text-slate-100 dark:placeholder:text-slate-600"
+            className="w-full min-w-0 bg-transparent border-none outline-hidden text-sm text-slate-800 placeholder:text-slate-400 font-medium dark:text-slate-100 dark:placeholder:text-slate-600"
           />
           {/* 검색어 초기화 버튼: 입력 내용이 있을 때만 표시 */}
           {content && (
             <button
               onClick={handleClear}
-              className="flex-shrink-0 p-0.5 ml-1 text-slate-400 hover:text-slate-600 rounded transition-colors dark:text-slate-500 dark:hover:text-slate-300"
+              className="shrink-0 p-0.5 ml-1 text-slate-400 hover:text-slate-600 rounded transition-colors dark:text-slate-500 dark:hover:text-slate-300"
               title="검색 초기화"
             >
               <X size={14} />

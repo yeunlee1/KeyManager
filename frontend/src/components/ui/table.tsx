@@ -48,7 +48,7 @@ const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<
     <td
       ref={ref}
       className={cn(
-        "px-4 py-3.5 border-y bg-slate-50 border-slate-200 first:rounded-l-xl first:border-l last:rounded-r-xl last:border-r group-hover:border-slate-300 group-hover:bg-slate-100 transition-all duration-200 dark:bg-white/[0.02] dark:border-white/10 dark:group-hover:border-white/20 dark:group-hover:bg-white/[0.05]",
+        "px-4 py-3.5 border-y bg-slate-50 border-slate-200 first:rounded-l-xl first:border-l last:rounded-r-xl last:border-r group-hover:border-slate-300 group-hover:bg-slate-100 transition-all duration-200 dark:bg-white/2 dark:border-white/10 dark:group-hover:border-white/20 dark:group-hover:bg-white/5",
         className,
       )}
       {...props}

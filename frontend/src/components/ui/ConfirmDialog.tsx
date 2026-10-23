@@ -36,7 +36,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     <AlertDialog open={open} onOpenChange={(next) => !next && !isConfirming && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-red-50 flex-shrink-0 dark:bg-red-400/10">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-red-50 shrink-0 dark:bg-red-400/10">
             <TriangleAlert size={20} className="text-red-500 dark:text-red-400" />
           </span>
           <AlertDialogTitle>{title}</AlertDialogTitle>

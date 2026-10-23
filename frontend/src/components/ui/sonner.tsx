@@ -9,6 +9,7 @@ const Toaster = ({ theme, ...props }: ToasterProps) => {
       className="toaster group"
       position="bottom-right"
       closeButton
+      style={{ pointerEvents: "auto" }}
       toastOptions={{
         classNames: {
           toast:

@@ -1,11 +1,12 @@
 # Frontend
 
-라이선스 관리 시스템의 웹 UI. React + TypeScript, Tailwind CSS로 작성된 싱글 페이지 앱(CRA/`react-scripts` 기반)이다.
+라이선스 관리 시스템의 웹 UI. React + TypeScript, Tailwind CSS로 작성하고 Vite로 실행하는 싱글 페이지 앱이다.
 
 ## 기술 스택
 
-- **React 18 + TypeScript**
-- **Tailwind CSS 3** — 다크/라이트 모드 지원 (`darkMode: "class"`, `<html>`의 `dark` 클래스로 토글)
+- **React 19.3 + TypeScript 6.0.3 + Vite 8**
+- **Tailwind CSS 4.3 + `@tailwindcss/vite` + `tw-animate-css`** — CSS의 `@theme inline`과 `@custom-variant dark`로 토큰과 다크 모드를 관리한다. `<html>`의 `dark` 클래스로 토글한다.
+- **Vitest 5 + jsdom + Testing Library 16**, **ESLint 10** — 시험과 정적 검사
 - **Radix UI** (`@radix-ui/react-*`) + **shadcn/ui 스타일** — Select/Dialog/AlertDialog/Label 등
   접근성 처리된 프리미티브를 Tailwind로 스타일링 (`components/ui/`)
 - **sonner** — 토스트 알림
@@ -36,7 +37,7 @@ frontend/src/
 │   ├── RegisterModal.tsx    # 라이선스 등록 모달
 │   └── SearchComponent.tsx  # 검색 필드 선택 + 검색어 입력
 ├── App.tsx                  # 헤더, 다크모드 토글, 연결 상태 배지
-├── config.ts                 # API 서버 주소 (REACT_APP_API_URL)
+├── config.ts                 # API 서버 주소 (VITE_API_URL)
 ├── index.css                 # Tailwind 베이스 + 라이트/다크 컬러 토큰(CSS 변수)
 └── css.d.ts                  # 일반 *.css 사이드이펙트 import에 대한 앰비언트 선언
 ```
@@ -45,19 +46,27 @@ frontend/src/
 
 ### 사전 요구사항
 
-**Node.js 18.18 이상** (권장: 현재 Active LTS 버전)
+**Node.js 22.22.2 이상인 22.x, 24.15.0 이상인 24.x 또는 26 이상**. 최신 jsdom과 Vitest의 실행 조건에 맞췄으며, 이 전환은 Node.js 24.21.0에서 확인했다.
+
+TypeScript는 typescript-eslint 호환 범위에 맞춰 **6.0.3**으로 고정한다. `@types/node`는 실행 환경에 맞춰 **24.x**를 사용한다.
 
 ### 설치 및 실행
 
 ```bash
-npm install
-npm start          # http://localhost:3000
-npm run build      # 배포용 정적 빌드 (build/)
-npm test           # Jest + Testing Library
+npm ci             # 커밋된 package-lock.json으로 설치
+npm run dev        # http://localhost:3000 (포트가 사용 중이면 종료)
+npm run typecheck  # 앱·Vite 설정·시험의 TypeScript 검사
+npm run lint       # ESLint, 경고도 실패 처리
+npm test           # Vitest + Testing Library, 네트워크 없이 1회 실행
+npm run build      # 타입 검사 후 배포용 정적 빌드 (dist/)
+npm run preview    # 빌드 결과를 로컬에서 확인
+npm audit          # 개발 의존성을 포함한 알려진 취약점 검사
 ```
 
 백엔드가 `http://localhost:5000`이 아닌 다른 주소로 실행 중이라면
-`.env.example`을 복사해 `.env`로 저장하고 `REACT_APP_API_URL`을 설정한다.
+`.env.example`을 복사해 `.env`로 저장하고 `VITE_API_URL`을 설정한다. 설정이 없으면
+`http://localhost:5000`에 연결한다. `VITE_`로 시작하는 값은 브라우저에 공개되므로 비밀 값을 넣지 않는다.
+환경변수를 바꾼 뒤에는 개발 서버를 다시 실행한다.
 
 ## 주요 UI/기능 설명
 
@@ -121,7 +130,8 @@ currentGroupFirstPage = floor((currentPage - 1) / pagesToShow) * pagesToShow + 1
 행의 내용**으로 계산하기 때문에, 사용자명이 긴 행이 있는 페이지와 짧은 페이지 사이에서 카테고리/관리
 칸 위치가 좌우로 흔들리는 문제가 있었다. 번호/카테고리/사용자/관리 칸에 고정 너비를 주고 "라이선스 키"
 칸만 남은 공간을 흡수하도록 했고, 칸보다 긴 카테고리/사용자명은 늘어나는 대신 말줄임(`truncate`) +
-`title` 툴팁으로 처리한다.
+`title` 툴팁으로 처리한다. 작은 화면에서는 표의 최소 너비를 유지하고 목록 영역 안에서 가로로
+스크롤한다. 목록 영역에 키보드 초점을 둔 뒤 방향키로도 이동할 수 있다.
 
 ### 중복 요청 방지 (`ItemList.tsx`, `ItemListDisplay.tsx`, `RegisterModal.tsx`, `ConfirmDialog.tsx`)
 
@@ -139,16 +149,13 @@ VSCode가 워크스페이스의 로컬 TypeScript(`node_modules/typescript`)가 
 
 ### `*.css` import에서 "Cannot find module" (TS2882)
 
-TypeScript 6.0부터 `noUncheckedSideEffectImports`가 기본 `true`가 되어, 선언되지 않은
-사이드이펙트 import(`import './index.css'` 등)를 에러로 처리한다. CRA 기본 타입 선언은
-`*.module.css`(CSS Modules)만 선언하고 일반 `*.css`는 선언하지 않아서 생기는 문제로,
-`src/css.d.ts`에 `declare module "*.css";`를 추가해 해결해뒀다.
+Vite의 CSS 타입은 `src/vite-env.d.ts`에서 불러온다. 일반 CSS import를 위한 기존
+`src/css.d.ts` 선언도 유지한다.
 
 ### `npm install` 시 ERESOLVE 에러
 
-`react-scripts@5.0.1`은 `typescript` peerDependency를 `^3.2.1 || ^4`로 선언하지만, 이 프로젝트는
-의도적으로 typescript 5.x를 사용한다(빌드/테스트/런타임 검증 완료). `.npmrc`의
-`legacy-peer-deps=true`가 이 알려진 불일치를 우회하도록 이미 설정되어 있다.
+CRA와 `legacy-peer-deps` 설정은 제거했다. 설치 오류가 나면 Node 버전과 오류에 표시된
+peer 의존성을 확인한다. 재현 가능한 설치에는 커밋된 잠금 파일과 `npm ci`를 사용한다.
 
 ### 카테고리 통계가 갱신되지 않을 때
 

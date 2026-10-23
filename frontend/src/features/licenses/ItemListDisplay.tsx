@@ -55,7 +55,7 @@ const CategoryBadge: React.FC<{ category: string }> = ({ category }) => {
 };
 
 // 편집 모드 셀 강조 클래스 (Radix/shadcn 토큰 대신 기존 인디고/시안 브랜드 컬러 유지)
-const EDITING_CELL = "border-blue-300 bg-blue-50 dark:border-cyan-400/40 dark:bg-cyan-400/[0.06]";
+const EDITING_CELL = "border-blue-300 bg-blue-50 dark:border-cyan-400/40 dark:bg-cyan-400/6";
 
 // 스켈레톤 행 (데이터 로딩 중 표시)
 const SkeletonRow: React.FC = () => (
@@ -157,9 +157,9 @@ const ItemListDisplay: React.FC<ItemListDisplayProps> = ({
   const isEmpty = !isLoading && items.length === 0;
 
   return (
-    <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
+    <div className="w-full overflow-x-auto pb-4 scrollbar-hide" role="region" aria-label="라이선스 목록" tabIndex={0}>
       {!isEmpty && (
-      <Table>
+      <Table className="min-w-[820px]">
         <TableHeader>
           <TableRow className="bg-slate-50 dark:bg-transparent hover:bg-transparent">
             <TableHead className="text-center w-16">번호</TableHead>
@@ -209,7 +209,7 @@ const ItemListDisplay: React.FC<ItemListDisplayProps> = ({
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`font-mono font-semibold text-sm leading-none tracking-wide transition-all ${
+                        className={`min-w-0 break-all font-mono font-semibold text-sm leading-none tracking-wide transition-all ${
                           assigned && !isEditing
                             ? "text-slate-400 line-through dark:text-slate-600"
                             : "text-slate-900 dark:text-slate-100"
@@ -221,7 +221,7 @@ const ItemListDisplay: React.FC<ItemListDisplayProps> = ({
                         onClick={() => handleCopy(item)}
                         aria-label="라이선스 키 복사"
                         title="키 복사"
-                        className="p-1 rounded-md text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-all dark:text-slate-600 dark:hover:text-cyan-300 dark:hover:bg-cyan-400/10"
+                        className="shrink-0 p-1 rounded-md text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-all dark:text-slate-600 dark:hover:text-cyan-300 dark:hover:bg-cyan-400/10"
                       >
                         {copiedNo === item.no ? (
                           <Check size={13} className="text-emerald-500 dark:text-emerald-400" />
@@ -259,7 +259,7 @@ const ItemListDisplay: React.FC<ItemListDisplayProps> = ({
                         placeholder="사용자명"
                         aria-label="사용자명 수정"
                         disabled={isSaving}
-                        className="w-full px-3 py-1.5 text-xs font-medium bg-white text-slate-900 border-2 border-blue-500 rounded-lg outline-none shadow-sm placeholder:text-slate-400 dark:bg-slate-900 dark:text-slate-100 dark:border-cyan-400 dark:placeholder:text-slate-600 disabled:opacity-60"
+                        className="w-full px-3 py-1.5 text-xs font-medium bg-white text-slate-900 border-2 border-blue-500 rounded-lg outline-hidden shadow-xs placeholder:text-slate-400 dark:bg-slate-900 dark:text-slate-100 dark:border-cyan-400 dark:placeholder:text-slate-600 disabled:opacity-60"
                         autoFocus
                       />
                     </div>
@@ -348,7 +348,7 @@ const ItemListDisplay: React.FC<ItemListDisplayProps> = ({
       {/* 빈 상태 UI: 로딩 중에는 표시하지 않음.
           검색/필터 때문에 0건인 경우와, 애초에 등록된 라이선스가 없는 경우를 구분해서 안내한다. */}
       {isEmpty && isFiltering && (
-        <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-slate-200 bg-gradient-to-b from-slate-50 to-transparent dark:border-white/10 dark:from-white/[0.03]">
+        <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-slate-200 bg-linear-to-b from-slate-50 to-transparent dark:border-white/10 dark:from-white/3">
           <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 border border-slate-200 dark:bg-white/5 dark:border-white/10">
             <SearchX size={20} className="text-slate-400 dark:text-slate-600" />
           </div>
@@ -360,7 +360,7 @@ const ItemListDisplay: React.FC<ItemListDisplayProps> = ({
         </div>
       )}
       {isEmpty && !isFiltering && (
-        <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-slate-200 bg-gradient-to-b from-slate-50 to-transparent dark:border-white/10 dark:from-white/[0.03]">
+        <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-dashed border-slate-200 bg-linear-to-b from-slate-50 to-transparent dark:border-white/10 dark:from-white/3">
           <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 border border-slate-200 dark:bg-white/5 dark:border-white/10">
             <span className="text-slate-400 dark:text-slate-600 text-lg font-mono font-bold select-none">—</span>
           </div>

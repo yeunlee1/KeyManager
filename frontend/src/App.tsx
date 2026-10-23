@@ -69,7 +69,7 @@ const App: React.FC = () => {
     <div className="min-h-screen antialiased font-sans bg-background text-foreground transition-colors duration-300">
       {/* 배경 글로우 (다크 모드 전용) */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden hidden dark:block">
-        <div className="absolute -top-32 -left-32 w-[32rem] h-[32rem] bg-blue-600/10 rounded-full blur-[140px]" />
+        <div className="absolute -top-32 -left-32 w-lg h-128 bg-blue-600/10 rounded-full blur-[140px]" />
       </div>
 
       {/* Top accent bar */}
@@ -81,7 +81,7 @@ const App: React.FC = () => {
           <header className="mb-8 sm:mb-10">
             <div className="flex items-center justify-between gap-4 mb-6">
               {/* 연결 상태 배지 */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none dark:backdrop-blur-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 shadow-xs dark:bg-white/5 dark:border-white/10 dark:shadow-none dark:backdrop-blur-xl">
                 <span className="relative flex h-1.5 w-1.5">
                   {connectionBadge.ping && (
                     <span
@@ -105,7 +105,7 @@ const App: React.FC = () => {
                 onClick={toggleTheme}
                 aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
                 title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-90 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:hover:text-cyan-300 dark:hover:border-cyan-400/30 dark:backdrop-blur-xl"
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-white border border-slate-200 shadow-xs text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-90 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:hover:text-cyan-300 dark:hover:border-cyan-400/30 dark:backdrop-blur-xl"
               >
                 {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </button>
@@ -114,7 +114,7 @@ const App: React.FC = () => {
             {/* 타이틀 영역 */}
             <div className="flex items-center gap-4 sm:gap-5">
               {/* 아이콘 블록 */}
-              <div className="flex-shrink-0 p-3 sm:p-4 rounded-2xl bg-blue-600 dark:bg-blue-500 shadow-md shadow-blue-500/20 dark:shadow-none dark:ring-1 dark:ring-white/10">
+              <div className="shrink-0 p-3 sm:p-4 rounded-2xl bg-blue-600 dark:bg-blue-500 shadow-md shadow-blue-500/20 dark:shadow-none dark:ring-1 dark:ring-white/10">
                 <KeyRound className="text-white" size={32} />
               </div>
 
@@ -142,7 +142,7 @@ const App: React.FC = () => {
       {/* 푸터 */}
       <footer className="relative z-10 pb-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-8">
-          <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10"></div>
+          <div className="w-full h-px bg-linear-to-r from-transparent via-slate-200 to-transparent dark:via-white/10"></div>
           <div className="mt-5 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-[11px] text-slate-400 dark:text-slate-500 tracking-wide">라이선스 관리 시스템 v2.1.0</p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500">© 2026 Admin Studio</p>
