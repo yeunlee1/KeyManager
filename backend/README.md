@@ -43,7 +43,7 @@ backend/
 
 ### 사전 요구사항
 
-- **Node.js 22.22.2 이상(22 계열), 24.15.0 이상(24 계열) 또는 26 이상** (홀수 버전 25는 지원하지 않음)
+- **Node.js 22.22.3 이상(22 계열), 24.15.0 이상(24 계열) 또는 26 이상** (홀수 버전 25는 지원하지 않음)
 - **PostgreSQL** — https://www.postgresql.org/download/ 에서 설치한다. 설치할 때 정한 비밀번호가 `.env`에 필요하다.
 
 ### 1. 환경 변수 설정
@@ -211,7 +211,7 @@ Response 200:
 
 ```json
 Request Body: { "key": "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX", "category": "Windows", "version": "Windows 11 Pro" }
-Response 200: { "no", "key", "member": "사용자없음", "isdelete": 0, "category", "version" }
+Response 200: { "no", "key", "member": "사용자없음", "isdelete": 0, "category", "version", "search_vector": null }  // 테이블 전체 컬럼(RETURNING *)
 Response 400: { "error": "키, 카테고리, 버전은 필수 항목입니다." }
 Response 400: { "error": "지원하지 않는 카테고리입니다." }
 Response 400: { "error": "지원하지 않는 버전입니다." }
@@ -226,7 +226,7 @@ member를 아예 빼면 NULL(미배정)로 저장한다.
 
 ```json
 Request Body: { "key": "...", "member": "홍길동" }
-Response 200: { 수정된 행 }
+Response 200: { 수정된 행의 전체 컬럼 (RETURNING *) }
 Response 400: { "error": "잘못된 요청입니다." }          // :no가 양의 정수가 아니거나 2147483647 초과
 Response 400: { "error": "라이선스 키는 필수 항목입니다." }
 Response 400: { "error": "이미 등록된 라이선스 키입니다." }

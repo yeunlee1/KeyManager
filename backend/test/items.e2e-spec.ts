@@ -48,6 +48,8 @@ describe("라이선스 API (/items)", () => {
         category: "Windows",
         version: "Windows 11 Pro",
         isdelete: 0,
+        // 옛 서버는 RETURNING *로 search_vector까지 돌려줬다. 응답 형태를 그대로 유지한다.
+        search_vector: null,
       });
     });
 
@@ -205,6 +207,8 @@ describe("라이선스 API (/items)", () => {
         member: "박민수",
         category: "Windows",
         version: "Windows 10 Pro",
+        isdelete: 0,
+        search_vector: null,
       });
     });
 

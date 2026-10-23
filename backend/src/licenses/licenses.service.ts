@@ -12,6 +12,9 @@ import { LICENSE_MESSAGES as MSG } from "./license-messages.js";
 
 export type LicenseListItem = Pick<LicenseKey, "no" | "key" | "member" | "category" | "version">;
 
+// 등록·수정 응답. 옛 서버처럼 RETURNING *로 엔티티에 없는 search_vector까지 테이블 전체 컬럼을 돌려준다.
+export type LicenseKeyRow = LicenseKey & { search_vector: string | null };
+
 export interface ItemsPage {
   items: LicenseListItem[];
   total: number;
@@ -32,9 +35,6 @@ function isUniqueViolation(error: unknown): boolean {
     (error.driverError as { code?: string } | undefined)?.code === "23505"
   );
 }
-
-// 수정·삭제 결과로 돌려줄 컬럼. 목록 항목에 isdelete를 더한 형태로 등록 응답과 맞춘다.
-const RETURNED_COLUMNS = ["no", "key", "member", "isdelete", "category", "version"];
 
 @Injectable()
 export class LicensesService {
@@ -75,7 +75,7 @@ export class LicensesService {
   }
 
   // 검사 순서는 옛 서버와 같다. 필수값(DTO) → 카테고리 → 버전 → 중복.
-  async create(dto: CreateItemDto): Promise<LicenseKey> {
+  async create(dto: CreateItemDto): Promise<LicenseKeyRow> {
     if (!CATEGORIES.includes(dto.category)) {
       throw new BadRequestException(MSG.UNSUPPORTED_CATEGORY);
     }
@@ -88,9 +88,14 @@ export class LicensesService {
     }
 
     try {
-      return await this.repo.save(
-        this.repo.create({ key: dto.key, category: dto.category, version: dto.version }),
-      );
+      const result = await this.repo
+        .createQueryBuilder()
+        .insert()
+        .into(LicenseKey)
+        .values({ key: dto.key, category: dto.category, version: dto.version })
+        .returning("*")
+        .execute();
+      return (result.raw as LicenseKeyRow[])[0];
     } catch (error) {
       if (isUniqueViolation(error)) throw new BadRequestException(MSG.DUPLICATE_KEY);
       throw error;
@@ -98,7 +103,7 @@ export class LicensesService {
   }
 
   // UPDATE ... RETURNING 한 번으로 존재 확인과 수정을 함께 해서, 확인과 수정 사이에 삭제되는 경쟁을 막는다.
-  async update(no: number, dto: UpdateItemDto): Promise<LicenseKey> {
+  async update(no: number, dto: UpdateItemDto): Promise<LicenseKeyRow> {
     try {
       const result = await this.repo
         .createQueryBuilder()
@@ -106,9 +111,9 @@ export class LicensesService {
         // member가 빠지면 옛 서버처럼 NULL(미배정)로 저장한다.
         .set({ key: dto.key, member: dto.member ?? null })
         .where({ no, isdelete: 0 })
-        .returning(RETURNED_COLUMNS)
+        .returning("*")
         .execute();
-      const updated = (result.raw as LicenseKey[])[0];
+      const updated = (result.raw as LicenseKeyRow[])[0];
       if (!updated) throw new NotFoundException(MSG.NOT_FOUND);
       return updated;
     } catch (error) {

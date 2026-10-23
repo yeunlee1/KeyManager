@@ -15,8 +15,12 @@ import { CreateItemDto } from "./dto/create-item.dto.js";
 import { ListItemsQuery } from "./dto/list-items.query.js";
 import { UpdateItemDto } from "./dto/update-item.dto.js";
 import { ItemNoPipe } from "./item-no.pipe.js";
-import type { LicenseKey } from "./license-key.entity.js";
-import { type CategoryStat, type ItemsPage, LicensesService } from "./licenses.service.js";
+import {
+  type CategoryStat,
+  type ItemsPage,
+  type LicenseKeyRow,
+  LicensesService,
+} from "./licenses.service.js";
 
 @Controller("items")
 export class LicensesController {
@@ -37,13 +41,13 @@ export class LicensesController {
   // 새 라이선스 키 등록. Nest 기본값(201) 대신 옛 서버와 같은 200을 돌려준다.
   @Post()
   @HttpCode(HttpStatus.OK)
-  create(@Body() dto: CreateItemDto): Promise<LicenseKey> {
+  create(@Body() dto: CreateItemDto): Promise<LicenseKeyRow> {
     return this.licenses.create(dto);
   }
 
   // 라이선스 키와 사용자명 수정. member를 빈 문자열로 보내면 배정 해제다.
   @Put(":no")
-  update(@Param("no", ItemNoPipe) no: string, @Body() dto: UpdateItemDto): Promise<LicenseKey> {
+  update(@Param("no", ItemNoPipe) no: string, @Body() dto: UpdateItemDto): Promise<LicenseKeyRow> {
     return this.licenses.update(Number(no), dto);
   }
 
