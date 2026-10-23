@@ -1,38 +1,48 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/server.js",
+  "description": "라이선스 키 관리 시스템 REST API 서버 (NestJS + TypeORM)",
+  "private": true,
+  "type": "module",
   "engines": {
-    "node": ">=18.18.0"
+    "node": "^22.13.0 || >=24.11.0"
   },
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
-    "test": "jest"
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "dev": "nest start --watch",
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "migration:run": "typeorm migration:run -d dist/data-source.js",
+    "migration:generate": "typeorm migration:generate -d dist/data-source.js"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
   "dependencies": {
-    "body-parser": "^1.20.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^4.21.1",
-    "nodemon": "^3.1.7",
-    "pg": "^8.22.0"
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/config": "^12.0.1",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "@nestjs/typeorm": "^12.0.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dotenv": "^18.0.9",
+    "helmet": "^8.3.0",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typeorm": "^1.1.2"
   },
   "devDependencies": {
-    "@types/body-parser": "^1.19.6",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.25",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^22.20.1",
-    "@types/pg": "^8.20.3",
-    "jest": "^30.4.2",
-    "ts-jest": "^29.4.12",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "@nestjs/cli": "^12.0.10",
+    "@nestjs/schematics": "^12.0.10",
+    "@nestjs/testing": "^12.2.0",
+    "@swc/core": "^1.16.20",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.2",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.1",
+    "typescript": "~6.0.3",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^5.0.5"
   }
 }

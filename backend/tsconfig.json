@@ -1,20 +1,25 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["ES2020"],
-    "module": "node16",
-    "moduleResolution": "node16",
-    "isolatedModules": true,
-    "rootDir": "src",
-    "outDir": "dist",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
     "strict": true,
+    "strictPropertyInitialization": false,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
+    "sourceMap": true,
     "declaration": false,
-    "sourceMap": true
+    "rootDir": ".",
+    "outDir": "./dist",
+    "noEmit": true
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src", "test", "vitest.config.ts", "vitest.e2e.config.ts"]
 }
