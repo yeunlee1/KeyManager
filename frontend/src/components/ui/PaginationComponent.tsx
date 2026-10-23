@@ -34,10 +34,10 @@ const PaginationComponent: React.FC<PaginationComponentProps> = ({
   );
 
   const btnBase =
-    "group flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-200 font-semibold text-[13px] outline-none select-none";
+    "group flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-200 font-semibold text-[13px] outline-hidden select-none";
 
   const btnActive =
-    "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:shadow-none";
+    "bg-blue-600 text-white shadow-xs dark:bg-blue-500 dark:shadow-none";
 
   const btnInactive =
     "text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200";
@@ -48,7 +48,7 @@ const PaginationComponent: React.FC<PaginationComponentProps> = ({
 
   return (
     <div className="flex items-center justify-center py-2">
-      <nav aria-label="페이지네이션" className="flex flex-wrap items-center justify-center gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-sm dark:bg-white/5 dark:border-white/10 dark:shadow-none">
+      <nav aria-label="페이지네이션" className="flex flex-wrap items-center justify-center gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-xs dark:bg-white/5 dark:border-white/10 dark:shadow-none">
         {/* 첫 페이지로 이동 */}
         <button
           disabled={currentPage === 1}

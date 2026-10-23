@@ -64,7 +64,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
       }}>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-50 flex-shrink-0 dark:bg-cyan-400/10">
+            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-blue-50 shrink-0 dark:bg-cyan-400/10">
               <KeyRound size={18} className="text-blue-600 dark:text-cyan-400" />
             </span>
             <div>
@@ -127,11 +127,11 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
                     ref={(el) => { inputRefs.current[index] = el; }}
                     aria-labelledby="product-key-label"
                     aria-label={`${index + 1}번째 칸 (5자리)`}
-                    className="w-0 flex-1 min-w-0 h-10 text-center font-mono font-bold text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring/40 focus:border-ring outline-none transition-all tracking-widest text-foreground placeholder:text-muted-foreground"
+                    className="w-0 flex-1 min-w-0 h-10 text-center font-mono font-bold text-xs sm:text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring/40 focus:border-ring outline-hidden transition-all tracking-normal sm:tracking-widest text-foreground placeholder:text-muted-foreground"
                     placeholder="XXXXX"
                   />
                   {index < keys.length - 1 && (
-                    <span className="text-slate-300 dark:text-slate-700 font-light text-lg flex-shrink-0">—</span>
+                    <span className="text-slate-300 dark:text-slate-700 font-light text-lg shrink-0">—</span>
                   )}
                 </React.Fragment>
               ))}

@@ -355,7 +355,7 @@ const ItemList: React.FC = () => {
         detailKey: "total",
         color: "text-slate-900 dark:text-slate-100",
         topBorder: "border-t-slate-400 dark:border-t-slate-600",
-        hoverBg: "hover:bg-slate-50 dark:hover:bg-white/[0.03]",
+        hoverBg: "hover:bg-slate-50 dark:hover:bg-white/3",
         iconBg: "bg-slate-100 dark:bg-white/10",
         icon: <KeyRound size={15} className="text-slate-500 dark:text-slate-300" />,
         showBar: false,
@@ -366,7 +366,7 @@ const ItemList: React.FC = () => {
         detailKey: "active",
         color: "text-emerald-600 dark:text-emerald-400",
         topBorder: "border-t-emerald-500 dark:border-t-emerald-400",
-        hoverBg: "hover:bg-emerald-50 dark:hover:bg-emerald-500/[0.06]",
+        hoverBg: "hover:bg-emerald-50 dark:hover:bg-emerald-500/6",
         iconBg: "bg-emerald-100 dark:bg-emerald-400/10",
         icon: <User size={15} className="text-emerald-600 dark:text-emerald-400" />,
         barColor: "bg-emerald-500 dark:bg-emerald-400",
@@ -378,7 +378,7 @@ const ItemList: React.FC = () => {
         detailKey: "available",
         color: "text-blue-600 dark:text-cyan-400",
         topBorder: "border-t-blue-500 dark:border-t-cyan-400",
-        hoverBg: "hover:bg-blue-50 dark:hover:bg-cyan-400/[0.06]",
+        hoverBg: "hover:bg-blue-50 dark:hover:bg-cyan-400/6",
         iconBg: "bg-blue-100 dark:bg-cyan-400/10",
         icon: <Unlock size={15} className="text-blue-600 dark:text-cyan-400" />,
         barColor: "bg-blue-500 dark:bg-cyan-400",
@@ -430,7 +430,7 @@ const ItemList: React.FC = () => {
             }
             aria-expanded={isExpanded}
             aria-label={`${stat.label} 카테고리별 상세 보기`}
-            className={`group relative overflow-hidden transition-all duration-300 border-t-2 w-full text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${stat.topBorder} ${stat.hoverBg}`}
+            className={`group relative overflow-hidden transition-all duration-300 border-t-2 w-full text-left cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-inset ${stat.topBorder} ${stat.hoverBg}`}
           >
             {/* 기본 뷰: 아이콘 + 레이블 + 숫자 + 프로그레스 바 */}
             <div
@@ -516,7 +516,7 @@ const ItemList: React.FC = () => {
       <div className="border-b border-slate-200 dark:border-white/10 px-4 sm:px-8 py-3">
         <div className="flex flex-col xl:flex-row xl:items-center gap-3">
           {/* 카테고리 탭 */}
-          <div className="flex items-center overflow-x-auto scrollbar-hide flex-shrink-0">
+          <div className="flex items-center overflow-x-auto scrollbar-hide shrink-0">
             {TAB_LABELS.map((tab) => (
               <button
                 key={tab}
@@ -541,7 +541,7 @@ const ItemList: React.FC = () => {
                   onClick={() => handleStatusChange(label)}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
                     statusFilter === (STATUS_MAP[label] || "all")
-                      ? "bg-blue-600 text-white shadow-sm dark:bg-blue-500 dark:shadow-none"
+                      ? "bg-blue-600 text-white shadow-xs dark:bg-blue-500 dark:shadow-none"
                       : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-white/10"
                   }`}
                 >
