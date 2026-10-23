@@ -2,9 +2,11 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { CategoriesModule } from "./categories/categories.module.js";
 import { type AppEnv, validateEnv } from "./config/env.validation.js";
 import { readAppEnv } from "./config/read-app-env.js";
 import { buildDataSourceOptions } from "./database/typeorm.options.js";
+import { HealthModule } from "./health/health.module.js";
 import { LicensesModule } from "./licenses/licenses.module.js";
 
 @Module({
@@ -20,6 +22,8 @@ import { LicensesModule } from "./licenses/licenses.module.js";
         retryDelay: 1000,
       }),
     }),
+    HealthModule,
+    CategoriesModule,
     LicensesModule,
   ],
 })
