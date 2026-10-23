@@ -124,7 +124,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
                     value={key}
                     onChange={(e) => onKeyChange(index, e.target.value)}
                     onKeyDown={(e) => onKeyDown(e, index)}
-                    ref={(el) => (inputRefs.current[index] = el)}
+                    ref={(el) => { inputRefs.current[index] = el; }}
                     aria-labelledby="product-key-label"
                     aria-label={`${index + 1}번째 칸 (5자리)`}
                     className="w-0 flex-1 min-w-0 h-10 text-center font-mono font-bold text-sm bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring/40 focus:border-ring outline-none transition-all tracking-widest text-foreground placeholder:text-muted-foreground"
