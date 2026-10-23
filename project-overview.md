@@ -1,6 +1,7 @@
 # 📌 Key Manager 프로젝트 개발 과정
 
-> ✨ React + Node.js + PostgreSQL을 활용한 라이선스 키 관리 사이트 개발
+> ✨ React + NestJS + PostgreSQL을 활용한 라이선스 키 관리 사이트 개발
+> (처음에는 React + Express로 만들었고, 2026-10에 백엔드를 NestJS로 옮겼습니다. 아래 11번 항목 참고)
 
 ## 📖 프로젝트 개요
 
@@ -17,11 +18,11 @@
 ## 🛠️ 아키텍처 및 기술 스택
 
 ```
-[브라우저]  ──►  React + TypeScript 앱 (localhost:3000)
+[브라우저]  ──►  React + TypeScript 앱 (Vite, localhost:3000)
                      │ HTTP 요청
                      ▼
-              Express + TypeScript 서버 (localhost:5000)
-                     │ SQL 쿼리
+              NestJS + TypeScript 서버 (localhost:5000)
+                     │ TypeORM
                      ▼
                  PostgreSQL
 ```
@@ -32,7 +33,8 @@
   - 초기엔 JavaScript로 시작했으나, 이후 전체를 TypeScript로 전환했습니다 (아래 10번 항목 참고).
 - **Tailwind CSS**: 유틸리티 클래스 기반 스타일링
   - CSS 파일을 별도로 작성하지 않고 클래스 이름으로 바로 디자인하는 방식입니다.
-  - `darkMode: "class"` 설정으로 다크/라이트 모드를 지원합니다.
+  - `<html>`에 `dark` 클래스를 붙이고 떼는 방식으로 다크/라이트 모드를 지원합니다.
+    (Tailwind 3에서는 `darkMode: "class"` 설정이었고, Tailwind 4로 옮기면서 `src/index.css`의 `@custom-variant dark`로 바뀌었습니다.)
 - **lucide-react**: 아이콘 라이브러리
   - 편집, 삭제 등 버튼에 쓰이는 아이콘을 제공합니다.
 - **Radix UI + shadcn/ui 스타일**: Select/Dialog/AlertDialog 등 접근성 처리된 UI 프리미티브
@@ -44,13 +46,16 @@
 ### **서버 (Backend)**
 - **Node.js + TypeScript**: 서버 사이드 JavaScript 실행
   - 브라우저 밖에서도 JavaScript를 실행할 수 있게 해주는 런타임입니다.
-  - 프론트엔드와 마찬가지로 이후 TypeScript로 전환했습니다. `src/`에 `.ts`로 작성하고 `tsc`로 컴파일합니다.
-- **Express.js**: RESTful API 구축을 위한 백엔드 프레임워크
-  - URL 별로 어떤 동작을 할지 쉽게 정의할 수 있는 서버 도구입니다.
+  - 프론트엔드와 마찬가지로 이후 TypeScript로 전환했습니다. `src/`에 `.ts`로 작성하고 빌드해서 실행합니다.
+- **NestJS**: RESTful API 구축을 위한 백엔드 프레임워크 (처음에는 Express.js로 만들었습니다)
+  - 기능을 모듈 단위로 나누고, 주소별 동작(컨트롤러)과 실제 처리(서비스)를 분리해 구조를 잡아 줍니다.
+    내부에서 HTTP 요청을 받는 일은 여전히 Express가 맡습니다.
   - > **RESTful API란?** 프론트엔드와 백엔드가 데이터를 주고받는 방식의 규칙입니다.
     > URL + HTTP 메서드(GET/POST/PUT/DELETE) 조합으로 어떤 동작인지 표현합니다.
     > 예) `GET /items` = 목록 가져오기, `POST /items` = 새 항목 추가
-- **pg 라이브러리**: Node.js에서 PostgreSQL과 연결하기 위한 라이브러리
+- **TypeORM**: 테이블을 TypeScript 클래스(엔티티)로 다루는 라이브러리
+  - 테이블 구조 변경은 마이그레이션 파일로 기록해, 서버가 시작할 때 순서대로 적용합니다.
+  - 내부적으로는 PostgreSQL 드라이버인 **pg** 라이브러리를 그대로 씁니다.
 
 ### **데이터베이스**
 - **PostgreSQL**: SQL 기반 관계형 데이터베이스
@@ -185,6 +190,27 @@
   - `any` 타입을 전혀 사용하지 않고, Express의 `Request<Params, ResBody, ReqBody, Query>`
     제네릭으로 라우트별 요청/응답까지 타입화
 - **결과**: 두 프로젝트 모두 `tsc --noEmit` 기준 타입 에러 0건, 기존 기능은 전부 동일하게 동작
+
+### 11. **React + NestJS 전환과 의존성 최신화 (2026-10)**
+- **사용 기술**: NestJS 12, TypeORM 1.x, Vite 8, React 19, Tailwind CSS 4, Vitest 5, ESLint 10
+- **배경**:
+  - 프론트를 만들던 CRA(`react-scripts`)는 공식 지원이 끝났고, 고칠 수 없는 오래된 패키지를 끌고 들어와
+    `npm audit` 기준 취약점이 프론트 93건(high 63건), 백엔드 3건(high 3건) 있었습니다.
+  - 잠금 파일(`package-lock.json`)을 저장소에 넣지 않아 설치할 때마다 버전이 달라졌고,
+    실제로 새로 설치한 CRA 앱이 `ajv` 버전 충돌로 시작되지 않았습니다.
+- **구현 내용**:
+  - 백엔드를 Express에서 **NestJS 12 + TypeORM**으로 다시 작성했습니다. 주소·상태 코드·응답 형태·한국어 오류 문구는
+    그대로 유지해서 프론트는 바뀐 백엔드를 알아채지 못합니다.
+    - 서버 시작 때 테이블을 만들던 `initSchema()`를 **TypeORM 마이그레이션**으로 옮겼습니다. 같은 SQL을 "없으면 만들기"로
+      작성해서 옛 서버가 만든 DB에도 데이터 손실 없이 적용됩니다(시험으로 확인).
+    - 보안 보강: `helmet` 보안 헤더, CORS를 지정한 프론트 주소만 허용, DTO에 없는 필드는 버림.
+    - 옛 서버에서 500이 나던 경우(숫자 범위를 넘는 번호, 문자열이 아닌 키)를 400으로 정리했습니다.
+  - 프론트는 화면 코드를 그대로 두고 CRA를 **Vite 8 + React 19 + Tailwind 4**로 옮겼습니다.
+  - 테스트 도구를 양쪽 모두 **Vitest**로 통일하고, 백엔드는 실제 PostgreSQL 시험 DB(`keymanager_test`)로 API 전체를 확인하는
+    e2e 시험을 더했습니다.
+  - 두 프로젝트의 잠금 파일을 저장소에 넣어 누가 설치해도 같은 버전이 깔리게 했습니다.
+- **결과**: 두 프로젝트 모두 `npm audit` 취약점 0건. TypeScript는 7.0이 나왔지만 NestJS CLI·typescript-eslint가
+  아직 지원하지 않아 6.0에 고정했습니다.
 
 ---
 
