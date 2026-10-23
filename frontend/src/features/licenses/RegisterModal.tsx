@@ -58,7 +58,12 @@ const RegisterModal: React.FC<RegisterModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && !isSubmitting && onClose()}>
-      <DialogContent onOpenAutoFocus={(e) => {
+      <DialogContent onInteractOutside={(event) => {
+        const target = event.detail.originalEvent.target;
+        if (target instanceof Element && target.closest("[data-sonner-toaster]")) {
+          event.preventDefault();
+        }
+      }} onOpenAutoFocus={(e) => {
         e.preventDefault();
         inputRefs.current[0]?.focus();
       }}>

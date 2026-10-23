@@ -321,7 +321,6 @@ const ItemList: React.FC = () => {
   useEffect(() => {
     fetchCategoryStats();
     fetchCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 목록은 페이지, 카테고리, 사용 상태, 검색 조건이 바뀔 때마다 재조회
