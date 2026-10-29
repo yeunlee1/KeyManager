@@ -7,11 +7,11 @@ import React, {
   useState,
 } from "react";
 import ItemListDisplay from "./ItemListDisplay";
-import PaginationComponent from "../../components/ui/PaginationComponent";
+import PaginationComponent from "../../components/legacy/PaginationComponent";
 import SearchComponent from "./SearchComponent";
-import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import ConfirmDialog from "../../components/legacy/ConfirmDialog";
 import RegisterModal from "./RegisterModal";
-import { Button } from "../../components/ui/button";
+import { Button } from "../../components/legacy/button";
 import { toast } from "sonner";
 import { KeyRound, User, Unlock, ChevronDown, Plus, Pencil, Trash2 } from "lucide-react";
 import {

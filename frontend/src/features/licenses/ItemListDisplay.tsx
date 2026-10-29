@@ -7,10 +7,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../components/ui/table";
-import { Skeleton } from "../../components/ui/skeleton";
-import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
+} from "../../components/legacy/table";
+import { Skeleton } from "../../components/legacy/skeleton";
+import { Badge } from "../../components/legacy/badge";
+import { Button } from "../../components/legacy/button";
 import { cn } from "../../lib/utils";
 import { Category, Item } from "../../types/item";
 

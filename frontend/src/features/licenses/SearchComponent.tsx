@@ -1,7 +1,7 @@
 import React, { KeyboardEvent, useState } from "react";
 import { Search, X } from "lucide-react";
-import { Button } from "../../components/ui/button";
-import SelectField from "../../components/ui/SelectField";
+import { Button } from "../../components/legacy/button";
+import SelectField from "../../components/legacy/SelectField";
 import { SearchField } from "../../types/item";
 import { SelectOption } from "../../types/ui";
 

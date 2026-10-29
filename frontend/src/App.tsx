@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ItemList from "./features/licenses/ItemList";
 import { KeyRound, Moon, Sun } from "lucide-react";
-import { Toaster } from "./components/ui/sonner";
+import { Toaster } from "./components/legacy/sonner";
 import { checkHealth } from "./api/items";
 
 const THEME_KEY = "km-theme";

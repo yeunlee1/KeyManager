@@ -6,11 +6,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "../../components/ui/dialog";
-import { Button } from "../../components/ui/button";
-import { Label } from "../../components/ui/label";
-import { Badge } from "../../components/ui/badge";
-import SelectField from "../../components/ui/SelectField";
+} from "../../components/legacy/dialog";
+import { Button } from "../../components/legacy/button";
+import { Label } from "../../components/legacy/label";
+import { Badge } from "../../components/legacy/badge";
+import SelectField from "../../components/legacy/SelectField";
 import { SelectOption } from "../../types/ui";
 
 interface RegisterModalProps {
