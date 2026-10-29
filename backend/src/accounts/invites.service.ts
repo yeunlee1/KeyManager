@@ -134,7 +134,8 @@ export class InvitesService {
   async lookup(token: string) {
     const invite = await this.findUsable(token);
     const inviter = await this.users.findOne({ where: { id: invite.createdBy } });
-    if (!inviter || inviter.status !== "active") throw new NotFoundException(NOT_FOUND);
+    // 수락과 같은 조건: 초대한 사람이 지금도 활성 관리자일 때만 초대를 보여 준다(짝 재확인 권장).
+    if (!inviter || inviter.status !== "active" || inviter.role !== "admin") throw new NotFoundException(NOT_FOUND);
     return {
       inviteId: invite.id,
       loginId: invite.loginId,

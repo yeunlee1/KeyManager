@@ -432,6 +432,37 @@ describe("금고·초대·사용자 관리", () => {
     }
   }, 20_000);
 
+  it("관리자 잠금 뒤 행 잠금을 너무 오래 기다려도 500이 아니라 409로 끝낸다(짝 재확인)", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const kim = await joinAsMember(admin, "kim");
+    const groupId = await createGroup(admin);
+    const holder = await holdWith("SELECT id FROM vault_groups WHERE id = $1 FOR UPDATE", [groupId]);
+    try {
+      const res = await admin.client.put(`/vault/groups/${groupId}/members/${kim.material.id}`, {
+        permission: "view",
+        generation: 1,
+        wrappedKey: rsaBlob(),
+        shareSignature: sigBlob(),
+      });
+      expect(res.status).toBe(409);
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
+    const after = await admin.client.get(`/vault/groups/${groupId}/members`).expect(200);
+    expect((after.body as { userId: string }[]).some((row) => row.userId === kim.material.id)).toBe(false);
+  }, 20_000);
+
+  it("초대한 사람이 직원으로 내려가면 그 초대는 조회부터 거절한다(짝 재확인 권장)", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const kim = await joinAsMember(admin, "kim");
+    await admin.client.patch(`/users/${kim.material.id}/role`, { role: "admin", totpCode: code(admin), promotion: { adminGrantSig: sigBlob(), keyShares: [] } }).expect(204);
+    const { token } = await createInvite(kim, clock, { loginId: "park" });
+    await new Client(app).post("/invites/lookup", { token }).expect(200);
+    await admin.client.patch(`/users/${kim.material.id}/role`, { role: "member", totpCode: code(admin), rotations: [] }).expect(204);
+    await new Client(app).post("/invites/lookup", { token }).expect(404);
+  });
+
   it("초대 수락은 관리자 작업 잠금 안에서 초대한 관리자를 확인한다(기다리는 사이 비활성화되면 거절, 짝 재확인)", async () => {
     const admin = await setupFirstAdmin(app, clock);
     const { token } = await createInvite(admin, clock, { loginId: "park" });
@@ -471,7 +502,7 @@ describe("금고·초대·사용자 관리", () => {
       );
       await new Promise((resolve) => setTimeout(resolve, 600));
       await holder.query("SAVEPOINT probe");
-      await expect(holder.query("SELECT id FROM vault_groups WHERE id = $1 FOR UPDATE NOWAIT", [groupId])).rejects.toThrow();
+      await expect(holder.query("SELECT id FROM vault_groups WHERE id = $1 FOR UPDATE NOWAIT", [groupId])).rejects.toMatchObject({ code: "55P03" });
     } finally {
       await holder.query("ROLLBACK").catch(() => undefined);
       await holder.end();

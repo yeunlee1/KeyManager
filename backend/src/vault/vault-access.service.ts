@@ -1,6 +1,6 @@
 // 묶음 열쇠 사본의 권한 판단, 열쇠 교체(세대 올리기), 관리자 올리기의 서버 쪽 규칙. 서버는 열쇠를 풀지 못하고 목록·세대가 빠짐없는지만 확인한다.
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { type EntityManager, In, QueryFailedError } from "typeorm";
+import { type EntityManager, In } from "typeorm";
 import { User } from "../accounts/user.entity.js";
 import type { AuthContext } from "../auth/auth.decorators.js";
 import { Session } from "../auth/session.entity.js";
@@ -12,7 +12,7 @@ import { VaultItem } from "./vault-item.entity.js";
 
 // 관리자 작업을 한 번에 하나씩 처리하는 트랜잭션 잠금 번호(pg_advisory_xact_lock)
 export const ADMIN_OPERATIONS_LOCK = 4_242_001;
-// 관리자 작업 잠금을 기다리는 최대 시간
+// 관리자 작업 트랜잭션에서 잠금 하나를 기다리는 최대 시간
 export const ADMIN_LOCK_WAIT_MS = 5_000;
 
 const LIST_CHANGED = "열쇠를 받을 사람이나 항목 목록이 서버와 달라요. 새로 불러온 뒤 다시 하세요.";
@@ -41,17 +41,11 @@ export class VaultAccessService {
   }
 
   // 요청한 사람을 확인하지 않고 잠금만 잡는다. 이미 확인한 트랜잭션 안에서 다시 잡거나, 로그인 없는 초대 수락에서 쓴다.
-  // 기다림에는 상한을 둔다. 화면의 요청 시간 상한(10초)보다 짧아서, 응답을 포기한 요청이 나중에 처리되지 않는다(짝 재확인).
+  // 이 트랜잭션의 잠금 대기마다 상한을 둔다(관리자 잠금과 그 뒤 행 잠금 각각). 넘으면 전역 필터가 409로 답한다(짝 재확인).
+  // 응답을 포기한 요청이 한참 뒤에 처리되는 일을 줄이려는 것이지, 요청 전체 시간을 보장하지는 않는다.
   async holdAdminLock(manager: EntityManager): Promise<void> {
     await manager.query(`SET LOCAL lock_timeout = '${ADMIN_LOCK_WAIT_MS}ms'`);
-    try {
-      await manager.query("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
-    } catch (error) {
-      if (error instanceof QueryFailedError && (error.driverError as { code?: string } | undefined)?.code === "55P03") {
-        throw new ConflictException("다른 관리자 작업이 아직 끝나지 않았어요. 잠시 뒤 다시 하세요.");
-      }
-      throw error;
-    }
+    await manager.query("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
   }
 
   // 묶음 하나를 열 수 있는지(보기 이상). 관리자도 사본이 있어야 연다.
