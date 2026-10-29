@@ -150,7 +150,7 @@
  * 디자인 토큰 (라이트 기본)
  * 색 체계는 coss ui의 @coss/colors-neutral(https://coss.com/ui/r/colors-neutral.json)을 그대로 따른다.
  * coss ui: MIT License, Copyright (c) 2025 coss.com, Originally Copyright (c) 2025 Origin UI
- * (https://github.com/cosscom/ui/blob/main/LICENSE)
+ * (https://github.com/cosscom/ui/blob/main/LICENSE, 허가문 전문은 frontend/public/THIRD-PARTY-NOTICES.txt)
  * KeyManager가 바꾼 값은 포인트 색(primary·ring), 위험 색(destructive), 다크 모드 흐린 글자(muted-foreground), 모서리(radius) 뿐이며, 각 줄에 표시한다.
  */
 :root {

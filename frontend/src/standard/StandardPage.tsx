@@ -242,7 +242,7 @@ function RegisterDialog() {
       <DialogPopup>
         <DialogHeader>
           <DialogTitle>라이선스 등록</DialogTitle>
-          <DialogDescription>카테고리와 버전을 고르고 25자리 제품 키를 입력하세요.</DialogDescription>
+          <DialogDescription>카테고리를 고르고 25자리 제품 키를 입력하세요.</DialogDescription>
         </DialogHeader>
         <DialogPanel className="grid gap-4">
           <Field>
