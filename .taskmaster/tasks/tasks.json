@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "KeyManager 공개 포크와 로컬 클론",
         "description": "친구 프로젝트 KimGiJeong1101/KeyManager를 yeunlee1 계정에 공개 포크하고 C:\\DEV\\KeyManager로 클론한다. 원본은 upstream으로 연결한다. 회사용 수정은 이후 별도 작업으로 한다.",
         "details": "사용자 결정(2026-10-23): 공개 포크는 비공개로 바꿀 수 없고 올린 회사용 수정이 공개된다는 점, 원본에 LICENSE가 없어 친구 허락이 필요하다는 점을 안내한 뒤 사용자가 공개 포크를 선택했다. push는 하지 않는다. .taskmaster 폴더는 저장소에 올리지 않는다.",
@@ -14,7 +14,7 @@
         "updatedAt": "2026-10-23T06:19:58.630Z"
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "React + NestJS 스택 전환 및 의존성 최신화",
         "description": "백엔드 Express → NestJS 전환, 프론트 React 유지(빌드 도구 포함 최신화), 전체 의존성을 최신 버전으로 올려 알려진 보안 취약점을 없앤다.",
         "details": "사용자 요청(2026-10-23): \"스텍 다 변경할꺼야. 리액트에 nestjs로 변경해줘\", \"해킹에 취약하지 않게 버전들도 다 최신으로 올려\". 현재 프론트는 이미 React 18(CRA), 백엔드는 Express 4 + pg. API 계약(경로·응답 형태·한국어 오류 메시지)은 유지한다. push는 하지 않는다. 설계 합의 후 구현.",
@@ -81,12 +81,12 @@
         "updatedAt": "2026-10-23T07:48:07.937Z"
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "프론트 표준 수립",
         "description": "새 디자인을 시작하기 전에 프론트 표준을 만든다. 스택 전환(작업 2)이 끝난 뒤 진행한다.",
         "details": "사용자 결정(2026-10-23): \"새디자인하기전에는 우리 프론트 표준을 만들어서 진행하자\". 표준에 담을 범위(디자인 토큰·컴포넌트·폴더 구조·코딩 규칙 등)와 적용 대상(이 프로젝트만인지, 회사 프로젝트 공통인지)은 착수할 때 사용자와 정한다. 지금은 등록만 한다.",
         "testStrategy": "",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "2"
         ],
@@ -99,7 +99,8 @@
             "details": "디자인 토큰·컴포넌트 규칙은 다른 프로젝트로 옮기기 쉽게 따로 묶어 둔다. 지금 화면의 다크 네온·그라데이션 대시보드 느낌에서 벗어난다. 다크 모드 유지 여부, 표준에 담을 범위, 견본 화면 방식은 이어서 정한다.",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 3
+            "parentTaskId": 3,
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -108,7 +109,8 @@
             "details": "스킬: ~/.agents/skills/frontend-quality (references/사이트선택과사용조건.md, references/검증기준.md). 다섯 사이트(coss ui·Beautiful UI·ObsidianUI·Originkit·Componetry)에서 화면 목적에 맞는 자료만 골라 통합한다. 기본 조작 요소는 coss ui, 진행·상태·결과는 Beautiful UI가 우선 후보. frontend-design(디자인 방향)·ui-ux-pro-max(사용성 기준)·web-perf(성능)는 스킬이 정한 보조 역할로만 쓴다. 출처 URL·사용 조건·라이선스 고지를 기록하고, 실행하지 않은 검증을 통과로 쓰지 않는다. Codex 짝에게도 같은 지시를 전달했다(Dispatch ctx_a26147ab1bc6).",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 3
+            "parentTaskId": 3,
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -117,13 +119,24 @@
             "details": "coss ui 사용 조건 확인(2026-10-29): 소스 저장소는 github.com/cosscom/ui, 저장소 전체 MIT(Copyright (c) 2025 coss.com, Originally Origin UI). 스킬 참고 문서(2026-10-04)가 가리키던 cosscom/coss는 이제 다른 제품 저장소(루트 AGPL-3.0)이고 apps/ui·LICENSING.md가 없다. 레지스트리 항목(coss.com/ui/r/*.json)에는 라이선스 표기가 없다. 전환 방식: 기존 Radix 컴포넌트는 src/components/legacy로 옮겨 지금 화면을 유지하고, src/components/ui에 coss ui를 들인다. 새 디자인(tm 4)에서 화면을 coss ui로 바꾼 뒤 legacy를 지운다. 토스트는 sonner → coss toastManager, Select는 items 방식, asChild → render.",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 3
+            "parentTaskId": 3,
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "완료 기록: 표준 구현·문서·짝 교차 확인",
+            "description": "브랜치 work/2026-10-29-프론트-표준의 커밋 f95d36e~2f385a1(push 안 함). 짝(Codex) 교차 확인 Dispatch ctx_1b424b4e9ae8 worker_done 성공, 열린 필수 지적 없음.",
+            "details": "결과물: frontend/src/components/ui(coss ui 24개, 원본 수정은 dialog·pagination·spinner·toast 한국어, button 처리 중 초점 유지, segmented-control 대비), frontend/src/index.css 토큰(primary·primary-foreground·ring 인디고, destructive red-600, 다크 muted-foreground 밝게, radius), 견본 /standard.html, docs/프론트-표준.md, frontend/public/THIRD-PARTY-NOTICES.txt(coss ui MIT 전문). 검증: typecheck·lint·test(19)·build·audit 종료 코드 0, 브라우저에서 키보드 조작·초점 복귀·라이트/다크 글자 138곳 대비(최저 4.73/4.77)·1440/768/390 폭·낮은 창 대화상자·움직임 줄이기·복사. 짝 지적(위험 색 대비 회귀, 움직임 줄이기, 처리 중 초점, 목차 가림, 영어 알림 이름, MIT 전문, 견본 안내 문구, 선택 개선 4건)은 모두 반영. 미확인: 실물 터치 기기·Safari·화면 읽기 프로그램·성능 측정·실제 DB 업무 쓰기. 기존 라이선스 화면은 아직 옛 디자인(새 디자인 단계에서 전환).",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 3,
+            "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-10-29T04:45:14.258Z"
+        "updatedAt": "2026-10-29T06:07:38.307Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "새 디자인 적용",
         "description": "새 스택과 프론트 표준 위에서 화면 디자인을 새로 만든다. 시안 2~3개를 먼저 보여 주고 사용자가 고른 방향으로 진행한다.",
         "details": "사용자 반응(2026-10-23): 기존 다크 모드 화면을 보고 \"화면이 너무 구려서 놀랐어\". 확인한 문제 후보는 통계 카드의 작은·흐린 글자, 흐린 테두리와 그라데이션 배경으로 뭉개진 영역 경계, 화면 절반을 차지하는 빈 화면 점선 상자, 템플릿 같은 장식이다. 프론트 표준(작업 3) 이후 진행한다. 지금은 등록만 한다.",
@@ -141,12 +154,13 @@
             "details": "해석: 사용자가 견본을 보고 실제 화면이 아직 옛 디자인임을 확인한 뒤 이 디자인을 쓰자고 함. 적용 범위는 라이선스 화면(App 머리글, 목록·툴바·표·페이지, 등록 대화상자, 수정·삭제, 상태 표시)이며 docs/프론트-표준.md와 frontend-quality 스킬을 따른다. 현황 점검의 문제(0건 페이지 이동, 키 입력 이름, 실패와 빈 결과 구분, 복사 실패 알림, 휴대폰 배치, 대비, 움직임)를 함께 고치고, 유지할 동작(삭제 확인, 중복 요청 방지, 수정 실패 시 편집 유지, 정상 빈 목록과 검색 0건 구분)은 지킨다. 화면을 다 옮긴 뒤 components/legacy와 Radix·sonner 의존성을 지운다.",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 4
+            "parentTaskId": 4,
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "스택 전환 뒤 기능 추가",
         "description": "스택 전환(작업 2)이 끝나면 멈추고 사용자에게 보고한 뒤, 사용자가 알려 줄 기능을 추가한다.",
         "details": "사용자 지시(2026-10-23): \"스텍전환만하고나서 일단 멈추고 말해줘. 이거 기능을 추가해야할게있음\". 추가할 기능 내용은 아직 받지 않았다. 작업 2 완료 보고 때 물어본다. 프론트 표준(작업 3)·새 디자인(작업 4)과의 순서도 그때 정한다.",
@@ -234,12 +248,73 @@
             "details": "2026-10-23 요구(5.1)와 같은 기능이며 결정 5.2~5.7(종단 간 암호화, 묶음별 공유, 앱 계정+마스터 비밀번호, 웹 복사+브라우저 확장, 복구 키, 공개 포크 로컬 개발)이 그대로 유효하다. 이번에 더해진 것: 항목 종류의 구체 예시(업체 컴퓨터 원격 접속: 아이디·비밀번호·IP / DB 접속: 아이디·비밀번호), \"서버 중앙에서 관리\", \"여러 명이 안전하게 사용\". 새 디자인(견본 화면 채택, 4.1)과 함께 설계서부터 만든다.",
             "status": "done",
             "dependencies": [],
-            "parentTaskId": 5
+            "parentTaskId": 5,
+            "parentId": "undefined"
+          },
+          {
+            "id": 9,
+            "title": "설계: 요구 정리 → 접근 방식 → 설계서 작성·검토",
+            "description": "brainstorming 절차(설계형 작업)로 진행한다. 질문은 하나씩, 설계는 부분별로 승인받고, 설계서(docs/superpowers/specs/)를 사용자가 검토·승인한 뒤에만 구현 계획을 쓴다.",
+            "details": "2026-10-29 시작. 범위가 커서 하위 프로젝트로 나누는 것부터 제안한다(예: 계정·금고·묶음 공유 웹 / 브라우저 확장 자동 입력). 결정 5.2~5.7과 보강 5.8을 기준으로 하고, 짝(Codex)에게 설계서 교차 확인을 맡긴다.",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 5,
+            "parentId": "undefined"
+          },
+          {
+            "id": 10,
+            "title": "결정: 두 단계로 나눔 (1단계 웹 금고 먼저)",
+            "description": "사용자 결정(2026-10-29, \"좋아 진행해 추천방법으로\"). 1단계는 웹에서 계정·암호화 금고·묶음 공유·복사·열람 기록, 2단계는 브라우저 확장 자동 입력(1단계 암호화 구조 위에 따로 설계).",
+            "details": "이해 메모(사용자가 고칠 곳 없이 진행 지시): 사용자 수십 명·항목 수천 개 이하, 항목 이름·IP·아이디까지 전부 암호화(서버는 묶음·종류·시각만 앎), 처음 설치한 사람이 관리자·관리자가 직원 초대, 라이선스 화면도 로그인 필요, 퇴사자는 묶음에서 빼고 비밀번호 교체 안내. 완성 기준: 권한 있는 직원은 고객사 이름으로 찾아 몇 번 만에 복사 / 묶음 밖 직원·서버·DB 관리자는 못 봄(DB 통째 유출에도 못 읽음) / 누가 언제 무엇을 열었는지 기록.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 5,
+            "parentId": "undefined"
+          },
+          {
+            "id": 11,
+            "title": "2단계(나중에): 브라우저 확장 자동 입력",
+            "description": "1단계 웹 금고가 안정된 뒤 별도 설계서로 진행한다. 지금은 등록만 해 둔다.",
+            "details": "결정 5.5(웹 복사 + 브라우저 확장 자동 입력) 중 확장 부분. 대상 브라우저(Chrome·Edge, Manifest V3 예상)와 배포 방식은 그때 정한다. 금고 열기와 복호화는 확장 안에서 하고 1단계 암호화 구조를 그대로 쓴다.",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 5,
+            "parentId": "undefined"
+          },
+          {
+            "id": 12,
+            "title": "결정: 관리자는 모든 묶음을 열 수 있음",
+            "description": "사용자 결정(2026-10-29, \"1\"). 관리자에게 모든 묶음 열쇠를 나눠 준다. 개인 금고는 관리자도 못 연다.",
+            "details": "이유: 묶음 담당자가 모두 퇴사하거나 열쇠를 잃어도 관리자가 새 담당자에게 다시 나눠 줄 수 있다(10/23 설명의 '관리자가 다시 공유해 복구'). 대가: 관리자 계정이 뚫리면 공유 정보가 전부 보이므로 관리자 계정을 더 강하게 지키고, 관리자의 묶음 열람도 열람 기록에 남긴다. 대안(관리자도 구성원이 아니면 못 엶)은 고르지 않았다.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 5,
+            "parentId": "undefined"
+          },
+          {
+            "id": 13,
+            "title": "결정: 2단계 인증(OTP)은 모든 사람 필수",
+            "description": "사용자 결정(2026-10-29, \"1\"). 마스터 비밀번호에 더해 인증 앱의 6자리 숫자(TOTP)를 모두가 넣는다.",
+            "details": "직원이 휴대폰을 잃으면 관리자가 그 사람의 2단계 인증을 초기화하고 직원이 다시 등록한다. 관리자 본인은 처음 등록할 때 받은 예비 코드로 해결한다. 2단계 인증은 로그인 확인용이라 초기화해도 암호화된 자료는 마스터 비밀번호 없이 열리지 않는다.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 5,
+            "parentId": "undefined"
+          },
+          {
+            "id": 14,
+            "title": "결정: KeyManager 안에 직접 만든다",
+            "description": "사용자 결정(2026-10-29, \"1\"). Vaultwarden·Passbolt를 따로 설치하는 방식은 고르지 않았다.",
+            "details": "같은 앱·같은 로그인·견본 디자인으로 만들고, 항목 종류(원격 접속·DB 접속 등)를 업무에 맞게 설계한다. 암호화는 새로 만들지 않고 브라우저 내장 Web Crypto와 검증된 공개 라이브러리만 쓰며, 구조는 Bitwarden이 공개한 보안 설계를 따른다. 보안 코드는 시험을 촘촘히 쓰고 짝(Codex)이 따로 교차 검토한다. 2단계 브라우저 확장도 직접 만든다.",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 5,
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "요즘 유명한 프론트엔드 스킬 목록 조사",
         "description": "사용자 요청(2026-10-23): \"요즘 프론트앤드 스킬 제일 유명한것들 리스트좀 뽑아봐바\". 프론트 표준·새 디자인 품질을 높이려는 목적. 에이전트 스킬 기준으로 인기·용도·설치 여부를 조사한다.",
         "details": "사용자 반응: 지금 프론트 화면이 마음에 들지 않음(\"아직도 너무 거지같긴하네\", \"너 프론트 작업하는거 마음에 안들지\"). 이미 이 PC에 설치된 프론트 관련 스킬(frontend-design, frontend-quality, impeccable, interface-design, ui-ux-pro-max, web-design-guidelines 등)과 외부 인기 스킬을 구분해 정리한다. 설치는 사용자 승인 후에만 한다.",
@@ -251,7 +326,7 @@
         "updatedAt": "2026-10-23T08:12:17.587Z"
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Task Master 파일을 저장소에 올려 다른 PC에서 이어 쓰기",
         "description": "사용자 요청(2026-10-23): \"이어서 바로 할수있게 거기에 task master파일도 올리면 안되나\". 작업 1에 적었던 \".taskmaster 폴더는 저장소에 올리지 않는다\"를 이 최신 요청으로 바꾼다.",
         "details": ".taskmaster/는 회사 PC의 .git/info/exclude로만 제외돼 있어 git add -f로 추적에 넣는다. config.json에 API 키 없음, tasks.json에 메일·PC 이름·비밀값 없음을 확인했다(회사 PC 폴더 경로와 Orca Dispatch ID는 있음). 공개 포크라 작업 목록도 공개된다. 이후 두 PC에서 작업 상태를 바꾸면 커밋·push·pull로 맞춰야 하고, 동시에 고치면 충돌할 수 있다. push는 사용자의 명시적 허락 후에만 한다.",
@@ -265,14 +340,12 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-29T04:45:14.258Z",
+      "lastModified": "2026-10-29T06:07:38.308Z",
       "taskCount": 7,
-      "completedCount": 4,
+      "completedCount": 5,
       "tags": [
         "master"
-      ],
-      "created": "2026-10-29T04:46:28.106Z",
-      "description": "Tasks for master context"
+      ]
     }
   }
 }
