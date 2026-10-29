@@ -152,9 +152,14 @@ function CopyKeyButton({ value }: { value: string }) {
     <Tooltip>
       <TooltipTrigger
         render={<Button variant="ghost" size="icon-sm" aria-label={`라이선스 키 ${value} 복사`} />}
-        onClick={() =>
-          toastManager.add({ title: "키를 복사했어요", description: value, type: "success" })
-        }
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            toastManager.add({ title: "키를 복사했어요", description: value, type: "success" });
+          } catch {
+            toastManager.add({ title: "복사하지 못했어요", description: "키를 직접 선택해 복사하세요.", type: "error" });
+          }
+        }}
       >
         <Copy />
       </TooltipTrigger>
@@ -345,7 +350,7 @@ export default function StandardPage() {
                   <KeyRound className="size-4" aria-hidden />
                 </span>
                 <div>
-                  <p className="font-heading font-semibold text-sm">KeyManager 프론트 표준</p>
+                  <h1 className="font-heading font-semibold text-sm">KeyManager 프론트 표준</h1>
                   <p className="text-muted-foreground text-xs">견본 화면 · 개발용</p>
                 </div>
               </div>
@@ -567,7 +572,7 @@ export default function StandardPage() {
             <Section
               id="pattern"
               title="목록 화면 예시"
-              rule="목록 화면은 제목과 주요 행동 → 분류 탭과 필터·검색 → 표 → 페이지 순서로 쌓는다. 영역마다 상자를 겹겹이 두르지 않고 간격과 구분선으로 나눈다."
+              rule="목록 화면은 제목과 주요 행동 → 분류 탭과 필터·검색 → 표 → 페이지 순서로 쌓는다. 영역마다 상자를 겹겹이 두르지 않고 간격과 구분선으로 나눈다. (이 예시의 검색·탭·페이지 이동과 위쪽 합계는 모양만 보여 주는 가짜 자료다.)"
             >
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
