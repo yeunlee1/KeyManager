@@ -4,7 +4,7 @@
       {
         "id": "1",
         "title": "KeyManager 공개 포크와 로컬 클론",
-        "description": "친구 프로젝트 KimGiJeong1101/KeyManager를 yeunlee1 계정에 공개 포크하고 C:\\DEV\\KeyManager로 클론한다. 원본은 upstream으로 연결한다. 회사용 수정은 이후 별도 작업으로 한다.",
+        "description": "친구 프로젝트 KimGiJeong1101/KeyManager를 yeunlee1 계정에 공개 포크하고 로컬 개발 폴더로 클론한다. 원본은 upstream으로 연결한다. 회사용 수정은 이후 별도 작업으로 한다.",
         "details": "사용자 결정(2026-10-23): 공개 포크는 비공개로 바꿀 수 없고 올린 회사용 수정이 공개된다는 점, 원본에 LICENSE가 없어 친구 허락이 필요하다는 점을 안내한 뒤 사용자가 공개 포크를 선택했다. push는 하지 않는다. .taskmaster 폴더는 저장소에 올리지 않는다.",
         "testStrategy": "",
         "status": "done",
@@ -37,7 +37,7 @@
           {
             "id": 2,
             "title": "백엔드 NestJS·TypeORM 전환 (Claude, 계획 작업 1~4)",
-            "description": "C:\\DEV\\KeyManager, 브랜치 work/2026-10-23-React-NestJS-전환. 구현 계획 작업 1~4.",
+            "description": "주 작업 폴더(저장소 루트), 브랜치 work/2026-10-23-React-NestJS-전환. 구현 계획 작업 1~4.",
             "details": "",
             "status": "done",
             "dependencies": [],
@@ -48,7 +48,7 @@
           {
             "id": 3,
             "title": "프론트 Vite·React 19·Tailwind 4 이전 (Codex 짝, 계획 작업 5~7)",
-            "description": "C:\\workspace\\KeyManager\\work-2026-10-23-React-NestJS-전환-프론트, 브랜치 work/2026-10-23-React-NestJS-전환-프론트. 구현 계획 작업 5~7. Orca Dispatch ctx_6faa519bdd00.",
+            "description": "짝의 Orca 작업 폴더(프론트), 브랜치 work/2026-10-23-React-NestJS-전환-프론트. 구현 계획 작업 5~7. Orca Dispatch ctx_6faa519bdd00.",
             "details": "",
             "status": "done",
             "dependencies": [],
