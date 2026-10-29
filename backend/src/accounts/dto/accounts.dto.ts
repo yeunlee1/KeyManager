@@ -113,6 +113,10 @@ export class VerifyInviteDto {
   // 관리자로 초대한 경우에만: 관리자 승인 서명과 모든 묶음 열쇠 사본
   @IsOptional() @ValidateNested() @Type(() => PromotionDto)
   promotion?: PromotionDto;
+
+  // 관리자로 올리는 확인에만 필요한 본인 인증 코드(직원 초대 확인은 자동이라 필요 없다)
+  @IsOptional() @IsString() @Matches(/^\d{6}$/, { message: "인증 코드는 숫자 6자리입니다." })
+  totpCode?: string;
 }
 
 export class RoleChangeDto extends StepUpDto {

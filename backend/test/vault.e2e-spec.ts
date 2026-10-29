@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DataSource } from "typeorm";
 import { TOTP_CLOCK } from "../src/auth/auth.service.js";
 import { resetTotp } from "../src/cli/totp-reset.js";
+import { ADMIN_OPERATIONS_LOCK } from "../src/vault/vault-access.service.js";
 import { createTestApp } from "./setup/test-app.js";
 import { loadTestEnv, truncateAccounts } from "./setup/test-db.js";
 import {
@@ -13,6 +14,7 @@ import {
   FakeClock,
   type SignedInUser,
   acceptInvite,
+  accountMaterial,
   aesBlob,
   b64u,
   createInvite,
@@ -108,7 +110,7 @@ describe("금고·초대·사용자 관리", () => {
     expect((await boss.client.get("/auth/me").expect(200)).body.role).toBe("member");
     await admin.client.post(`/invites/${inviteId}/verify`, { trustRecordEnc: aesBlob(200) }).expect(409);
     await admin.client
-      .post(`/invites/${inviteId}/verify`, { trustRecordEnc: aesBlob(200), promotion: { adminGrantSig: sigBlob(), keyShares: [] } })
+      .post(`/invites/${inviteId}/verify`, { trustRecordEnc: aesBlob(200), promotion: { adminGrantSig: sigBlob(), keyShares: [] }, totpCode: code(admin) })
       .expect(409);
     await admin.client
       .post(`/invites/${inviteId}/verify`, {
@@ -117,6 +119,7 @@ describe("금고·초대·사용자 관리", () => {
           adminGrantSig: sigBlob(),
           keyShares: [{ groupId, generation: 1, wrappedKey: rsaBlob(), shareSignature: sigBlob() }],
         },
+        totpCode: code(admin),
       })
       .expect(204);
     expect((await boss.client.get("/auth/me").expect(200)).body.role).toBe("admin");
@@ -194,17 +197,17 @@ describe("금고·초대·사용자 관리", () => {
     const remove = (rotation: object) => admin.client.post(`/vault/groups/${groupId}/members/${kim.material.id}/remove`, { rotation });
     await admin.client.post(`/vault/groups/${groupId}/members/${kim.material.id}/remove`, {}).expect(400);
     // 빠지는 사람을 받을 사람에 넣거나, 항목 하나를 빠뜨리면 거절한다.
-    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id), grant(kim.material.id)], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob() }] }).expect(409);
+    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id), grant(kim.material.id)], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob(), revision: 1 }] }).expect(409);
     await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id)], itemKeys: [] }).expect(409);
     // 남아야 할 사람(관리자)의 새 사본을 빠뜨려도 거절한다. 빠뜨리면 그 사람은 옛 세대 사본만 갖게 된다.
-    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob() }] }).expect(409);
-    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id)], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob() }] }).expect(204);
+    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob(), revision: 1 }] }).expect(409);
+    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id)], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob(), revision: 1 }] }).expect(204);
     const [group] = await ds.query("SELECT generation FROM vault_groups WHERE id = $1", [groupId]);
     expect(group.generation).toBe(2);
     const [row] = await ds.query("SELECT key_generation, needs_rotation FROM vault_items WHERE id = $1", [created.id]);
     expect(row).toEqual({ key_generation: 2, needs_rotation: true });
     expect((await kim.client.get("/vault/items").expect(200)).body).toHaveLength(0);
-    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id)], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob() }] }).expect(404);
+    await remove({ groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id)], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob(), revision: 1 }] }).expect(404);
   });
 
   it("비활성화는 그 사람이 열던 모든 묶음의 교체가 있어야 되고, 세션도 끊긴다", async () => {
@@ -259,6 +262,191 @@ describe("금고·초대·사용자 관리", () => {
     await admin.client.get("/auth/me").expect(401);
     const relogin = await new Client(app).post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(200);
     expect(relogin.body).toEqual({ next: "enroll_totp" });
+  });
+
+  it("관리자 두 명이 동시에 스스로 직원이 되려 해도 관리자는 한 명 남는다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const { inviteId, token } = await createInvite(admin, clock, { loginId: "boss", role: "admin" });
+    const boss = await acceptInvite(app, token, "boss", clock);
+    await admin.client
+      .post(`/invites/${inviteId}/verify`, { trustRecordEnc: aesBlob(200), promotion: { adminGrantSig: sigBlob(), keyShares: [] }, totpCode: code(admin) })
+      .expect(204);
+    const results = await Promise.all([
+      admin.client.patch(`/users/${admin.material.id}/role`, { role: "member", totpCode: code(admin), rotations: [] }),
+      boss.client.patch(`/users/${boss.material.id}/role`, { role: "member", totpCode: code(boss), rotations: [] }),
+    ]);
+    expect(results.map((res) => res.status).sort()).toEqual([204, 409]);
+    const [count] = await ds.query("SELECT COUNT(*)::int AS n FROM users WHERE role = 'admin' AND status = 'active'");
+    expect(count.n).toBe(1);
+  });
+
+  it("묶음 만들기와 그 사람 비활성화가 동시에 와도 비활성 사용자에게 열쇠 사본이 남지 않는다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const kim = await joinAsMember(admin, "kim");
+    const results = await Promise.all([
+      admin.client.post("/vault/groups", { id: randomUUID(), nameEnc: aesBlob(), accesses: [grant(admin.material.id), grant(kim.material.id)] }),
+      admin.client.post(`/users/${kim.material.id}/disable`, { totpCode: code(admin), rotations: [] }),
+    ]);
+    expect(results.filter((res) => res.status < 300)).toHaveLength(1);
+    expect(results.every((res) => res.status < 500)).toBe(true);
+    const [leak] = await ds.query(
+      "SELECT COUNT(*)::int AS n FROM vault_group_access a JOIN users u ON u.id = a.user_id WHERE u.status = 'disabled'",
+    );
+    expect(leak.n).toBe(0);
+  });
+
+  it("항목 고치기와 열쇠 교체가 동시에 와도 교착 없이 한쪽만 반영되고, 옛 항목 열쇠로 덮어쓰지 않는다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const kim = await joinAsMember(admin, "kim");
+    const groupId = await createGroup(admin, [grant(kim.material.id)]);
+    const created = item(groupId);
+    await admin.client.post("/vault/items", created).expect(201);
+    const newKey = aesBlob();
+    const results = await Promise.all([
+      admin.client.put(`/vault/items/${created.id}`, { expectedRevision: 1, keyGeneration: 1, itemKeyEnc: newKey, summaryEnc: aesBlob(), secretEnc: aesBlob(), clearRotation: false }),
+      admin.client.post(`/vault/groups/${groupId}/members/${kim.material.id}/remove`, {
+        rotation: { groupId, fromGeneration: 1, nameEnc: aesBlob(), accesses: [grant(admin.material.id)], itemKeys: [{ itemId: created.id, itemKeyEnc: aesBlob(), revision: 1 }] },
+      }),
+    ]);
+    expect(results.every((res) => res.status < 500)).toBe(true);
+    expect(results.filter((res) => res.status < 300)).toHaveLength(1);
+    const [row] = await ds.query("SELECT revision, key_generation, item_key_enc FROM vault_items WHERE id = $1", [created.id]);
+    if (results[0].status === 200) {
+      // 고치기가 이겼으면 새 항목 열쇠가 그대로 남고 세대는 그대로다.
+      expect(row).toMatchObject({ revision: 2, key_generation: 1, item_key_enc: newKey });
+    } else {
+      expect(row).toMatchObject({ revision: 1, key_generation: 2 });
+    }
+  });
+
+  // 아래 두 시험은 경합을 우연에 맡기지 않고, 별도 DB 연결로 잠금을 먼저 잡아 순서를 강제한다.
+  async function holdWith(sql: string, params: unknown[] = []): Promise<pg.Client> {
+    const env = loadTestEnv();
+    const holder = new pg.Client({ host: env.DB_HOST, port: env.DB_PORT, user: env.DB_USER, password: env.DB_PASSWORD, database: env.DB_NAME });
+    await holder.connect();
+    await holder.query("BEGIN");
+    await holder.query(sql, params);
+    return holder;
+  }
+
+  // 잠금을 쥔 채 요청을 보내고, 정한 시간 안에 끝나지 않는지(=그 잠금에서 기다리는지) 본 뒤 잠금을 푼다.
+  // 시험이 실패해도 잠금은 반드시 풀어 뒤 시험이 줄줄이 막히지 않게 한다.
+  async function expectBlockedUntilReleased(
+    holder: pg.Client,
+    send: () => PromiseLike<{ status: number }>,
+  ): Promise<number> {
+    try {
+      let finished = false;
+      const pending = Promise.resolve(send()).then((res) => {
+        finished = true;
+        return res;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(finished).toBe(false);
+      await holder.query("COMMIT");
+      return (await pending).status;
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
+  }
+
+  it("관리자 작업(묶음 만들기·비활성화·초대·역할)은 같은 잠금을 잡아 하나씩 처리한다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const kim = await joinAsMember(admin, "kim");
+    const lee = await joinAsMember(admin, "lee");
+    const lock = () => holdWith("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+    // 본인 인증 코드는 요청을 보내는 순간에 만들어, 앞 요청의 코드보다 늘 뒤 구간이 되게 한다.
+    const newGroupId = randomUUID();
+    expect(await expectBlockedUntilReleased(await lock(), () => admin.client.post("/vault/groups", { id: newGroupId, nameEnc: aesBlob(), accesses: [grant(admin.material.id)] }))).toBe(201);
+    expect(await expectBlockedUntilReleased(await lock(), () => admin.client.post(`/users/${lee.material.id}/disable`, { totpCode: code(admin), rotations: [] }))).toBe(204);
+    expect(await expectBlockedUntilReleased(await lock(), () => admin.client.post("/invites", { id: randomUUID(), token: b64u(32), loginId: "park", name: "박", role: "member", expiresAt: new Date(Date.now() + 3_600_000).toISOString(), secretEnc: aesBlob(), inviterMac: b64u(32), totpCode: code(admin) }))).toBe(201);
+    expect(await expectBlockedUntilReleased(await lock(), () => admin.client.patch(`/users/${kim.material.id}/role`, { role: "admin", totpCode: code(admin), promotion: { adminGrantSig: sigBlob(), keyShares: [{ groupId: newGroupId, generation: 1, wrappedKey: rsaBlob(), shareSignature: sigBlob() }] } }))).toBe(204);
+  });
+
+  it("항목 고치기는 묶음을 먼저 잠근 뒤 항목을 잠근다(열쇠 교체와 같은 순서라 교착하지 않는다)", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const groupId = await createGroup(admin);
+    const created = item(groupId);
+    await admin.client.post("/vault/items", created).expect(201);
+    // 다른 연결이 항목 행을 잡고 있으면 항목 고치기는 그 앞에서 기다린다. 그때 묶음 행은 이미 공유 잠금 상태여야 한다.
+    const holder = await holdWith("SELECT id FROM vault_items WHERE id = $1 FOR UPDATE", [created.id]);
+    let update: Promise<{ status: number }> | undefined;
+    try {
+      update = Promise.resolve(
+        admin.client.put(`/vault/items/${created.id}`, { expectedRevision: 1, keyGeneration: 1, itemKeyEnc: aesBlob(), summaryEnc: aesBlob(), secretEnc: aesBlob(), clearRotation: false }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await holder.query("SAVEPOINT probe");
+      await expect(holder.query("SELECT id FROM vault_groups WHERE id = $1 FOR UPDATE NOWAIT", [groupId])).rejects.toThrow();
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
+    expect((await update)?.status).toBe(200);
+  });
+
+  it("이미 사본이 있는 사람의 권한을 바꿀 때는 지금 세대·사본에 대한 서명만 받는다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const kim = await joinAsMember(admin, "kim");
+    const groupId = await createGroup(admin, [grant(kim.material.id, "view")]);
+    const members = await admin.client.get(`/vault/groups/${groupId}/members`).expect(200);
+    const row = members.body.find((m: { userId: string }) => m.userId === kim.material.id);
+    // 열쇠 교체 전 세대나 다른 사본에 대해 만든 서명은 거절한다.
+    await admin.client
+      .put(`/vault/groups/${groupId}/members/${kim.material.id}`, { permission: "edit", generation: 99, wrappedKey: row.wrappedKey, shareSignature: sigBlob() })
+      .expect(409);
+    await admin.client
+      .put(`/vault/groups/${groupId}/members/${kim.material.id}`, { permission: "edit", generation: 1, wrappedKey: rsaBlob(), shareSignature: sigBlob() })
+      .expect(409);
+    await admin.client
+      .put(`/vault/groups/${groupId}/members/${kim.material.id}`, { permission: "edit", generation: 1, wrappedKey: row.wrappedKey, shareSignature: sigBlob() })
+      .expect(204);
+  });
+
+  it("두 관리자가 같은 아이디로 동시에 초대해도 유효한 초대는 하나만 생긴다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const { inviteId, token } = await createInvite(admin, clock, { loginId: "boss", role: "admin" });
+    const boss = await acceptInvite(app, token, "boss", clock);
+    await admin.client
+      .post(`/invites/${inviteId}/verify`, { trustRecordEnc: aesBlob(200), promotion: { adminGrantSig: sigBlob(), keyShares: [] }, totpCode: code(admin) })
+      .expect(204);
+    const body = (user: SignedInUser) => ({
+      id: randomUUID(),
+      token: b64u(32),
+      loginId: "same",
+      name: "같은 사람",
+      role: "member",
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      secretEnc: aesBlob(),
+      inviterMac: b64u(32),
+      totpCode: code(user),
+    });
+    const results = await Promise.all([admin.client.post("/invites", body(admin)), boss.client.post("/invites", body(boss))]);
+    expect(results.map((res) => res.status).sort()).toEqual([201, 409]);
+  });
+
+  it("초대한 관리자가 비활성화되면 그 초대로는 가입할 수 없다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const { inviteId, token } = await createInvite(admin, clock, { loginId: "boss", role: "admin" });
+    const boss = await acceptInvite(app, token, "boss", clock);
+    await admin.client
+      .post(`/invites/${inviteId}/verify`, { trustRecordEnc: aesBlob(200), promotion: { adminGrantSig: sigBlob(), keyShares: [] }, totpCode: code(admin) })
+      .expect(204);
+    const pending = await createInvite(boss, clock, { loginId: "kim" });
+    await admin.client.post(`/users/${boss.material.id}/disable`, { totpCode: code(admin), rotations: [] }).expect(204);
+    await new Client(app)
+      .post("/invites/accept", { ...accountMaterial(), token: pending.token, acceptMac: b64u(32), inviterTrustRecordEnc: aesBlob(200) })
+      .expect(404);
+  });
+
+  it("관리자로 올리는 초대 확인은 본인 인증 코드가 있어야 한다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const { inviteId, token } = await createInvite(admin, clock, { loginId: "boss", role: "admin" });
+    await acceptInvite(app, token, "boss", clock);
+    await admin.client
+      .post(`/invites/${inviteId}/verify`, { trustRecordEnc: aesBlob(200), promotion: { adminGrantSig: sigBlob(), keyShares: [] } })
+      .expect(403);
   });
 
   it("로그인하지 않으면 라이선스 API를 쓸 수 없다", async () => {

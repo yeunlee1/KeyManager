@@ -72,6 +72,7 @@ export class UsersService {
   async changeRole(auth: AuthContext, id: string, dto: RoleChangeDto, req: Request): Promise<void> {
     await this.auth.verifyStepUp(auth.user, dto.totpCode, req);
     await this.dataSource.transaction(async (manager) => {
+      await this.access.lockAdminOperations(manager);
       const target = await this.target(manager, id);
       if (target.role === dto.role) throw new ConflictException("이미 그 역할이에요.");
       if (dto.role === "admin") {
@@ -94,6 +95,7 @@ export class UsersService {
     await this.auth.verifyStepUp(auth.user, dto.totpCode, req);
     if (id === auth.user.id) throw new ConflictException("자기 계정은 비활성화할 수 없어요.");
     await this.dataSource.transaction(async (manager) => {
+      await this.access.lockAdminOperations(manager);
       const target = await this.target(manager, id);
       if (target.status === "disabled") throw new ConflictException("이미 비활성화된 사용자예요.");
       await this.assertNotLastAdmin(manager, target);

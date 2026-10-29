@@ -25,12 +25,18 @@ import {
   SecretRequestDto,
   UpdateItemDto,
 } from "./dto/vault.dto.js";
-import { IsOptional } from "class-validator";
+import { IsInt, IsOptional, IsString, Matches, Min } from "class-validator";
 import { VaultService } from "./vault.service.js";
 
 // 관리자를 구성원에서만 뺄 때 받는 새 서명(구성원 여부가 바뀐 값에 대한 서명)
 class RemoveMemberBodyDto extends RemoveMemberDto {
   @IsOptional() @IsSignature() adminShareSignature?: string;
+
+  // 새 서명이 덮는 지금 행의 세대·사본(서버가 지금 값과 같은지 확인한다)
+  @IsOptional() @IsInt() @Min(1) adminShareGeneration?: number;
+
+  @IsOptional() @IsString() @Matches(/^v1r\.[A-Za-z0-9_-]{512}$/, { message: "열쇠 사본 형식이 올바르지 않습니다." })
+  adminShareWrappedKey?: string;
 }
 
 @Controller("vault")

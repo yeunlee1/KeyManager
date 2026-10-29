@@ -57,6 +57,11 @@ export class InvitesService {
       throw new ConflictException("이미 같은 아이디의 사용자가 있어요.");
     }
     await this.dataSource.transaction(async (manager) => {
+      // 같은 아이디로 두 관리자가 동시에 초대해도 하나만 생기게 관리자 작업 잠금을 잡는다(짝 검토).
+      await this.access.lockAdminOperations(manager);
+      if (await manager.getRepository(User).exists({ where: { loginId: dto.loginId } })) {
+        throw new ConflictException("이미 같은 아이디의 사용자가 있어요.");
+      }
       const pending = await manager.getRepository(Invite).find({
         where: { loginId: dto.loginId, usedAt: IsNull(), revokedAt: IsNull() },
       });
@@ -158,6 +163,9 @@ export class InvitesService {
     await this.dataSource.transaction(async (manager) => {
       const invite = await this.findUsable(dto.token, manager, true);
       if (invite.id !== preview.id) throw new NotFoundException(NOT_FOUND);
+      // 초대한 관리자가 비활성화됐거나 관리자가 아니게 됐으면 그 초대로는 가입할 수 없다(짝 검토).
+      const inviter = await manager.getRepository(User).findOne({ where: { id: invite.createdBy } });
+      if (!inviter || inviter.status !== "active" || inviter.role !== "admin") throw new NotFoundException(NOT_FOUND);
       if (await manager.getRepository(User).exists({ where: { loginId: invite.loginId } })) {
         throw new ConflictException("이미 같은 아이디의 사용자가 있어요. 관리자에게 알려 주세요.");
       }
@@ -210,7 +218,10 @@ export class InvitesService {
   }
 
   async verify(auth: AuthContext, inviteId: string, dto: VerifyInviteDto, req: Request): Promise<void> {
+    // 관리자로 올리는 확인은 역할 바꾸기와 같이 본인 인증 코드를 받는다. 직원 초대 확인은 자동으로 한다.
+    if (dto.promotion) await this.auth.verifyStepUp(auth.user, dto.totpCode, req);
     await this.dataSource.transaction(async (manager) => {
+      await this.access.lockAdminOperations(manager);
       const invite = await manager.getRepository(Invite).findOne({ where: { id: inviteId }, lock: { mode: "pessimistic_write" } });
       if (!invite || invite.createdBy !== auth.user.id) throw new ForbiddenException("내가 만든 초대만 확인할 수 있어요.");
       if (!invite.usedAt || !invite.acceptedUserId || invite.revokedAt) throw new ConflictException("아직 수락하지 않은 초대예요.");
@@ -224,7 +235,7 @@ export class InvitesService {
         ["ownerUserId", "subjectUserId"],
       );
       if (invite.role === "admin") {
-        if (!dto.promotion) throw new ConflictException("관리자 초대는 관리자 승인 서명과 묶음 열쇠 사본을 함께 보내야 해요.");
+        if (!dto.promotion || !dto.totpCode) throw new ConflictException("관리자 초대는 본인 인증 코드·관리자 승인 서명·묶음 열쇠 사본을 함께 보내야 해요.");
         await this.access.promote(manager, auth.user.id, target, dto.promotion.adminGrantSig, dto.promotion.keyShares);
       }
       await manager.update(Invite, { id: invite.id }, { verifiedAt: new Date() });

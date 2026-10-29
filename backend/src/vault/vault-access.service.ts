@@ -8,6 +8,9 @@ import { VaultGroupAccess } from "./vault-group-access.entity.js";
 import { VaultGroup } from "./vault-group.entity.js";
 import { VaultItem } from "./vault-item.entity.js";
 
+// 관리자 작업을 한 번에 하나씩 처리하는 트랜잭션 잠금 번호(pg_advisory_xact_lock)
+export const ADMIN_OPERATIONS_LOCK = 4_242_001;
+
 const LIST_CHANGED = "열쇠를 받을 사람이나 항목 목록이 서버와 달라요. 새로 불러온 뒤 다시 하세요.";
 
 function sameSet(a: Iterable<string>, b: Iterable<string>): boolean {
@@ -18,6 +21,13 @@ function sameSet(a: Iterable<string>, b: Iterable<string>): boolean {
 
 @Injectable()
 export class VaultAccessService {
+  // 관리자 작업(역할 바꾸기·비활성화·묶음 만들기·구성원 추가·빼기·관리자 올리기)은 이 잠금으로 한 번에 하나씩 처리한다.
+  // 드문 작업이라 차례로 처리해도 느리지 않고, 서로 다른 행 잠금이 엇갈려 생기는 교착·빠짐(짝 검토)이 없어진다.
+  // 같은 트랜잭션에서 다시 잡아도 된다(재진입 가능).
+  async lockAdminOperations(manager: EntityManager): Promise<void> {
+    await manager.query("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+  }
+
   // 묶음 하나를 열 수 있는지(보기 이상). 관리자도 사본이 있어야 연다.
   async accessOf(manager: EntityManager, groupId: string, userId: string): Promise<VaultGroupAccess | null> {
     return manager.getRepository(VaultGroupAccess).findOne({ where: { groupId, userId } });
@@ -45,6 +55,7 @@ export class VaultAccessService {
     rotation: RotationDto,
     removed: ReadonlySet<string>,
   ): Promise<number> {
+    await this.lockAdminOperations(manager);
     const group = await manager.getRepository(VaultGroup).findOne({
       where: { id: rotation.groupId },
       lock: { mode: "pessimistic_write" },
@@ -66,9 +77,15 @@ export class VaultAccessService {
         throw new ConflictException(LIST_CHANGED);
       }
     }
-    const items = await manager.getRepository(VaultItem).find({ where: { groupId: group.id }, select: { id: true } });
+    const items = await manager.getRepository(VaultItem).find({ where: { groupId: group.id }, select: { id: true, revision: true } });
     if (!sameSet(rotation.itemKeys.map((k) => k.itemId), items.map((item) => item.id))) {
       throw new ConflictException(LIST_CHANGED);
+    }
+    // 브라우저가 다시 잠근 항목 열쇠가 지금 개정의 것일 때만 받는다. 그 사이 고쳐진 항목을 옛 열쇠로 덮으면 영영 못 연다.
+    for (const key of rotation.itemKeys) {
+      if (items.find((item) => item.id === key.itemId)?.revision !== key.revision) {
+        throw new ConflictException("그 사이 고쳐진 항목이 있어요. 새로 불러온 뒤 다시 하세요.");
+      }
     }
 
     const next = group.generation + 1;
@@ -118,8 +135,8 @@ export class VaultAccessService {
   ): Promise<void> {
     if (target.status !== "active") throw new ConflictException("가입을 마친 사람만 관리자로 올릴 수 있어요.");
     if (target.role === "admin") throw new ConflictException("이미 관리자예요.");
-    // 올리는 동안 묶음이 새로 생기거나 열쇠가 바뀌지 않게 묶음 표를 잠근다.
-    await manager.query("LOCK TABLE vault_groups IN SHARE ROW EXCLUSIVE MODE");
+    // 올리는 동안 묶음이 새로 생기거나 열쇠가 바뀌지 않게 관리자 작업 잠금을 잡는다.
+    await this.lockAdminOperations(manager);
     const groups = await manager.getRepository(VaultGroup).find();
     const existing = await manager.getRepository(VaultGroupAccess).find({ where: { userId: target.id } });
     const needed = groups.filter(

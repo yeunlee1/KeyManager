@@ -51,6 +51,9 @@ export class RenameGroupDto {
 export class ItemKeyDto {
   @IsUUID("4") itemId: string;
 
+  // 이 개정의 항목 열쇠를 다시 잠갔다는 표시. 그 사이 항목이 고쳐졌으면 서버가 거절한다(옛 열쇠로 덮어쓰지 않게).
+  @IsInt() @Min(1) revision: number;
+
   @IsAesBlob(200) itemKeyEnc: string;
 }
 

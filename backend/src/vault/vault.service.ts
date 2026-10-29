@@ -67,8 +67,8 @@ export class VaultService {
     const ids = dto.accesses.map((grant) => grant.userId);
     if (new Set(ids).size !== ids.length) throw new BadRequestException("같은 사람이 두 번 들어 있어요.");
     await this.dataSource.transaction(async (manager) => {
-      // 관리자 올리기와 겹치지 않게 묶음 표를 잠근 뒤, 지금 관리자 전원의 사본이 들어 있는지 본다.
-      await manager.query("LOCK TABLE vault_groups IN SHARE ROW EXCLUSIVE MODE");
+      // 관리자 올리기·비활성화와 겹치지 않게 관리자 작업 잠금을 잡은 뒤, 지금 관리자 전원의 사본이 들어 있는지 본다.
+      await this.access.lockAdminOperations(manager);
       const admins = await manager.getRepository(User).find({ where: { role: "admin", status: "active" } });
       if (!admins.every((admin) => ids.includes(admin.id))) {
         throw new ConflictException("관리자 목록이 바뀌었어요. 새로 불러온 뒤 다시 만드세요.");
@@ -143,6 +143,7 @@ export class VaultService {
     if (!dto.shareSignature) throw new BadRequestException("권한을 바꾸려면 관리자 서명이 필요해요.");
     const signature = dto.shareSignature;
     await this.dataSource.transaction(async (manager) => {
+      await this.access.lockAdminOperations(manager);
       const group = await manager.getRepository(VaultGroup).findOne({ where: { id: groupId }, lock: { mode: "pessimistic_write" } });
       if (!group) throw new NotFoundException("묶음이 없어요.");
       const user = await manager.getRepository(User).findOne({ where: { id: userId } });
@@ -151,6 +152,10 @@ export class VaultService {
       const row = await repo.findOne({ where: { groupId, userId } });
       if (row) {
         // 이미 사본이 있으면(관리자 등) 권한·구성원 여부만 바꾸고, 바뀐 값에 대한 새 서명을 받는다.
+        // 서명은 지금 행의 세대·사본에 대해 한 것이어야 한다. 열쇠 교체 전에 만든 옛 서명을 저장하면 명단 확인이 깨진다(짝 검토).
+        if (dto.generation !== row.generation || dto.wrappedKey !== row.wrappedKey) {
+          throw new ConflictException("열쇠 사본이 그 사이 바뀌었어요. 새로 불러온 뒤 다시 하세요.");
+        }
         await repo.update({ groupId, userId }, { permission: dto.permission, isMember: true, sharedBy: auth.user.id, shareSignature: signature });
       } else {
         if (!dto.wrappedKey || dto.generation !== group.generation) {
@@ -182,14 +187,18 @@ export class VaultService {
     });
   }
 
-  async removeMember(auth: AuthContext, groupId: string, userId: string, dto: RemoveMemberDto & { adminShareSignature?: string }, req: Request): Promise<void> {
+  async removeMember(auth: AuthContext, groupId: string, userId: string, dto: RemoveMemberDto & { adminShareSignature?: string; adminShareGeneration?: number; adminShareWrappedKey?: string }, req: Request): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
+      await this.access.lockAdminOperations(manager);
       const user = await manager.getRepository(User).findOne({ where: { id: userId } });
       const row = await this.access.accessOf(manager, groupId, userId);
       if (!row || !row.isMember) throw new NotFoundException("그 묶음의 구성원이 아니에요.");
       if (user?.role === "admin") {
         // 관리자는 구성원에서 빠져도 관리자로서 계속 연다. 구성원 여부가 바뀐 값에 대한 새 서명을 받는다.
         if (!dto.adminShareSignature) throw new BadRequestException("관리자를 구성원에서 뺄 때는 새 서명이 필요해요.");
+        if (dto.adminShareGeneration !== row.generation || dto.adminShareWrappedKey !== row.wrappedKey) {
+          throw new ConflictException("열쇠 사본이 그 사이 바뀌었어요. 새로 불러온 뒤 다시 하세요.");
+        }
         await manager.getRepository(VaultGroupAccess).update(
           { groupId, userId },
           { isMember: false, permission: "edit", sharedBy: auth.user.id, shareSignature: dto.adminShareSignature },
@@ -317,13 +326,16 @@ export class VaultService {
 
   async updateItem(auth: AuthContext, itemId: string, dto: UpdateItemDto, req: Request) {
     return this.dataSource.transaction(async (manager) => {
+      // 열쇠 교체와 같은 순서(묶음 → 항목)로 잠가 교착을 막는다(짝 검토).
+      const found = await manager.getRepository(VaultItem).findOne({ where: { id: itemId } });
+      if (!found) throw new NotFoundException("항목이 없어요.");
+      if (found.groupId) await this.lockGroupGeneration(manager, found.groupId, dto.keyGeneration);
       const item = await manager.getRepository(VaultItem).findOne({ where: { id: itemId }, lock: { mode: "pessimistic_write" } });
-      if (!item) throw new NotFoundException("항목이 없어요.");
+      if (!item || item.groupId !== found.groupId) throw new NotFoundException("항목이 없어요.");
       await this.authorizeItem(manager, auth, item, "edit");
       if (item.revision !== dto.expectedRevision) {
         throw new ConflictException("다른 사람이 먼저 고쳤어요. 새 내용을 불러온 뒤 다시 하세요.");
       }
-      if (item.groupId) await this.lockGroupGeneration(manager, item.groupId, dto.keyGeneration);
       const revision = item.revision + 1;
       await manager.update(
         VaultItem,
