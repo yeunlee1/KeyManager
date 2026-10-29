@@ -26,19 +26,32 @@ export function assertKdfParams(params: KdfParams): void {
   }
 }
 
+// 실제 Argon2id 계산기. 기본은 이 스레드에서 바로 계산하고, 화면에서는 setKdfRunner로 웹 작업자 계산기로 바꾼다.
+export type KdfRunner = (password: Bytes, salt: Bytes, params: KdfParams) => Promise<Bytes>;
+
+const directRunner: KdfRunner = async (password, salt, params) =>
+  new Uint8Array(
+    await argon2id({
+      password,
+      salt,
+      parallelism: params.parallelism,
+      iterations: params.iterations,
+      memorySize: params.memoryKiB,
+      hashLength: 32,
+      outputType: "binary",
+    }),
+  );
+
+let runner: KdfRunner = directRunner;
+
+export function setKdfRunner(next: KdfRunner): void {
+  runner = next;
+}
+
 export async function deriveMaster(password: string, saltB64u: string, params: KdfParams): Promise<Bytes> {
   assertKdfParams(params);
   const salt = b64uDecode(saltB64u);
   if (salt.length !== 16) throw new Error("비밀번호 변환 소금이 올바르지 않아요.");
   // 같은 한글도 입력기에 따라 조합형·분해형이 달라질 수 있어 NFC로 맞춘다.
-  const result = await argon2id({
-    password: utf8(password.normalize("NFC")),
-    salt,
-    parallelism: params.parallelism,
-    iterations: params.iterations,
-    memorySize: params.memoryKiB,
-    hashLength: 32,
-    outputType: "binary",
-  });
-  return new Uint8Array(result);
+  return runner(utf8(password.normalize("NFC")), salt, params);
 }

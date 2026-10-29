@@ -1,158 +1,130 @@
-import React, { useEffect, useState } from "react";
-import ItemList from "./features/licenses/ItemList";
-import { KeyRound, Moon, Sun } from "lucide-react";
-import { Toaster } from "./components/legacy/sonner";
-import { checkHealth } from "./api/items";
+// 주소별 화면과 로그인·잠금 상태에 따른 길 안내(설계서 7절). 잠기면 열쇠와 풀어 둔 화면 상태가 모두 사라진다.
+import type { ReactNode } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
+import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { AuditPage } from "@/features/admin/AuditPage";
+import { GroupsPage } from "@/features/admin/GroupsPage";
+import { UsersPage } from "@/features/admin/UsersPage";
+import { AccountPage } from "@/features/account/AccountPage";
+import { useAuth } from "@/features/auth/auth-context";
+import { InvitePage } from "@/features/auth/InvitePage";
+import { LoginPage } from "@/features/auth/LoginPage";
+import { RecoverPage } from "@/features/auth/RecoverPage";
+import { SetupPage } from "@/features/auth/SetupPage";
+import { UnlockPage } from "@/features/auth/UnlockPage";
+import { LicensesPage } from "@/features/licenses/LicensesPage";
+import { VaultDataProvider } from "@/features/vault/VaultData";
+import { VaultPage } from "@/features/vault/VaultPage";
 
-const THEME_KEY = "km-theme";
-
-type Theme = "dark" | "light";
-
-interface ConnectionBadgeStyle {
-  dot: string;
-  ping: string | null;
-  text: string;
-  textColor: string;
+function FullPage({ children }: { children: ReactNode }) {
+  return <div className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">{children}</div>;
 }
 
-const CONNECTION_BADGE_MAP: Record<"null" | "true" | "false", ConnectionBadgeStyle> = {
-  null: {
-    dot: "bg-slate-400",
-    ping: null,
-    text: "연결 확인 중...",
-    textColor: "text-slate-500 dark:text-slate-400",
-  },
-  true: {
-    dot: "bg-emerald-500",
-    ping: "bg-emerald-400",
-    text: "시스템 연결됨",
-    textColor: "text-slate-500 dark:text-slate-400",
-  },
-  false: {
-    dot: "bg-red-500",
-    ping: "bg-red-400",
-    text: "서버 연결 끊김",
-    textColor: "text-red-500 dark:text-red-400",
-  },
-};
+// 상태를 아직 모르거나 서버에 닿지 않을 때는 어떤 화면도 그리지 않는다.
+function StatusGate({ children }: { children: ReactNode }) {
+  const { status, reload } = useAuth();
+  if (status === "loading") {
+    return (
+      <FullPage>
+        <span className="flex items-center gap-2 text-muted-foreground text-sm" role="status">
+          <Spinner aria-hidden />
+          불러오는 중이에요
+        </span>
+      </FullPage>
+    );
+  }
+  if (status === "unreachable") {
+    return (
+      <FullPage>
+        <div className="grid max-w-sm gap-3 text-center">
+          <p className="font-medium">서버에 연결하지 못했어요.</p>
+          <p className="text-muted-foreground text-sm">네트워크와 서버가 켜져 있는지 확인한 뒤 다시 시도하세요.</p>
+          <Button type="button" className="justify-self-center" onClick={() => void reload()}>
+            다시 시도
+          </Button>
+        </div>
+      </FullPage>
+    );
+  }
+  return <>{children}</>;
+}
 
-const App: React.FC = () => {
-  // null = 확인 중, true = 연결됨, false = 연결 실패
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(THEME_KEY) as Theme) || "light",
-  );
+function SetupOnly({ children }: { children: ReactNode }) {
+  const { status } = useAuth();
+  return status === "setup" ? <>{children}</> : <Navigate to="/" replace />;
+}
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
+function SignedOutOnly({ children }: { children: ReactNode }) {
+  const { status } = useAuth();
+  if (status === "setup") return <Navigate to="/setup" replace />;
+  if (status === "locked" || status === "unlocked") return <Navigate to="/vault" replace />;
+  return <>{children}</>;
+}
 
-  useEffect(() => {
-    const checkConnection = () => {
-      checkHealth()
-        .then(() => setIsConnected(true))
-        .catch(() => setIsConnected(false));
-    };
-
-    checkConnection();
-    const interval = setInterval(checkConnection, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-
-  const connectionBadge =
-    CONNECTION_BADGE_MAP[String(isConnected) as "null" | "true" | "false"];
-
+function Protected() {
+  const { status, unlockCount } = useAuth();
+  const location = useLocation();
+  if (status === "setup") return <Navigate to="/setup" replace />;
+  if (status === "signed-out") return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (status === "locked") return <UnlockPage />;
   return (
-    <div className="min-h-screen antialiased font-sans bg-background text-foreground transition-colors duration-300">
-      {/* 배경 글로우 (다크 모드 전용) */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden hidden dark:block">
-        <div className="absolute -top-32 -left-32 w-lg h-128 bg-blue-600/10 rounded-full blur-[140px]" />
-      </div>
-
-      {/* Top accent bar */}
-      <div className="h-[3px] bg-blue-600 dark:bg-blue-500 relative z-10" />
-
-      <main className="relative z-10 pt-8 sm:pt-12 pb-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          {/* 헤더 */}
-          <header className="mb-8 sm:mb-10">
-            <div className="flex items-center justify-between gap-4 mb-6">
-              {/* 연결 상태 배지 */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 shadow-xs dark:bg-white/5 dark:border-white/10 dark:shadow-none dark:backdrop-blur-xl">
-                <span className="relative flex h-1.5 w-1.5">
-                  {connectionBadge.ping && (
-                    <span
-                      className={`animate-ping absolute inline-flex h-full w-full rounded-full ${connectionBadge.ping} opacity-75`}
-                    ></span>
-                  )}
-                  <span
-                    className={`relative inline-flex rounded-full h-1.5 w-1.5 ${connectionBadge.dot}`}
-                  ></span>
-                </span>
-                <span
-                  className={`text-[10px] font-semibold tracking-widest uppercase ${connectionBadge.textColor}`}
-                >
-                  {connectionBadge.text}
-                </span>
-              </div>
-
-              {/* 테마 토글 */}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
-                title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-white border border-slate-200 shadow-xs text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-90 dark:bg-white/5 dark:border-white/10 dark:text-slate-300 dark:hover:text-cyan-300 dark:hover:border-cyan-400/30 dark:backdrop-blur-xl"
-              >
-                {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
-            </div>
-
-            {/* 타이틀 영역 */}
-            <div className="flex items-center gap-4 sm:gap-5">
-              {/* 아이콘 블록 */}
-              <div className="shrink-0 p-3 sm:p-4 rounded-2xl bg-blue-600 dark:bg-blue-500 shadow-md shadow-blue-500/20 dark:shadow-none dark:ring-1 dark:ring-white/10">
-                <KeyRound className="text-white" size={32} />
-              </div>
-
-              <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl lg:text-[2.5rem] font-bold tracking-tight leading-none truncate">
-                  <span className="text-slate-900 dark:text-slate-100">라이선스</span>{" "}
-                  <span className="text-blue-600 dark:text-blue-400">관리</span>
-                </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                  소프트웨어 라이선스 키를 등록하고 사용자 배포 현황을 관리합니다.
-                </p>
-              </div>
-            </div>
-          </header>
-
-          {/* 메인 섹션 */}
-          <section>
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60 overflow-hidden dark:border-white/10 dark:bg-slate-900/60 dark:backdrop-blur-xl dark:shadow-2xl dark:shadow-black/40">
-              <ItemList />
-            </div>
-          </section>
-        </div>
-      </main>
-
-      {/* 푸터 */}
-      <footer className="relative z-10 pb-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8">
-          <div className="w-full h-px bg-linear-to-r from-transparent via-slate-200 to-transparent dark:via-white/10"></div>
-          <div className="mt-5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 tracking-wide">라이선스 관리 시스템 v2.1.0</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500">© 2026 Admin Studio</p>
-          </div>
-        </div>
-      </footer>
-
-      <Toaster theme={theme} />
-    </div>
+    <VaultDataProvider key={unlockCount}>
+      <AppShell />
+    </VaultDataProvider>
   );
-};
+}
 
-export default App;
+function AdminOnly() {
+  const { me } = useAuth();
+  if (me?.role !== "admin") {
+    return (
+      <div className="grid gap-2">
+        <h1 className="font-heading font-semibold text-2xl">관리자만 볼 수 있어요</h1>
+        <p className="text-muted-foreground text-sm">이 화면이 필요하면 관리자에게 부탁하세요.</p>
+      </div>
+    );
+  }
+  return <Outlet />;
+}
+
+export default function App() {
+  return (
+    <StatusGate>
+      <Routes>
+        <Route
+          path="/setup"
+          element={
+            <SetupOnly>
+              <SetupPage />
+            </SetupOnly>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <SignedOutOnly>
+              <LoginPage />
+            </SignedOutOnly>
+          }
+        />
+        <Route path="/invite" element={<InvitePage />} />
+        <Route path="/recover" element={<RecoverPage />} />
+        <Route element={<Protected />}>
+          <Route index element={<Navigate to="/vault" replace />} />
+          <Route path="/vault" element={<VaultPage />} />
+          <Route path="/licenses" element={<LicensesPage />} />
+          <Route path="/account" element={<AccountPage />} />
+          <Route path="/admin" element={<AdminOnly />}>
+            <Route index element={<Navigate to="/admin/users" replace />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="groups" element={<GroupsPage />} />
+            <Route path="audit" element={<AuditPage />} />
+          </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </StatusGate>
+  );
+}
