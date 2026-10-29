@@ -33,6 +33,14 @@ export default defineConfig([
     },
   },
   {
+    // coss ui 원본 소스(shadcn CLI로 받은 파일). 컴포넌트와 함께 variants·toastManager·Primitive를 내보내는 것이
+    // coss ui의 설계라서 이 규칙만 끈다. 원본을 고치지 않아야 coss ui를 다시 받아 업데이트하기 쉽다.
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
+  {
     files: ["src/**/*.test.{ts,tsx}"],
     languageOptions: { globals: globals.vitest },
   },

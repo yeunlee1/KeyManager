@@ -40,7 +40,7 @@ const App: React.FC = () => {
   // null = 확인 중, true = 연결됨, false = 연결 실패
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(THEME_KEY) as Theme) || "dark",
+    () => (localStorage.getItem(THEME_KEY) as Theme) || "light",
   );
 
   useEffect(() => {
