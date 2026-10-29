@@ -83,6 +83,10 @@ export class User {
   @Column({ name: "failed_attempts", type: "int", default: 0 })
   failedAttempts: number;
 
+  // 비밀번호·2단계 인증·복구 상태가 바뀔 때마다 올라가는 인증 버전. 세션은 만들 때의 값과 같아야 쓸 수 있다.
+  @Column({ name: "auth_version", type: "int", default: 1 })
+  authVersion: number;
+
   @Column({ name: "locked_until", type: "timestamptz", nullable: true })
   lockedUntil: Date | null;
 

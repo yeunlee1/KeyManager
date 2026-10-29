@@ -2,6 +2,7 @@
 import { Transform, Type } from "class-transformer";
 import {
   Equals,
+  IsDefined,
   IsIn,
   IsInt,
   IsOptional,
@@ -53,6 +54,8 @@ export class PasswordMaterialDto {
   @IsString() @Matches(B64U_16, { message: "소금 형식이 올바르지 않습니다." })
   kdfSalt: string;
 
+  // ValidateNested는 값이 없으면 검사하지 않으므로 IsDefined로 빠진 경우를 따로 막는다.
+  @IsDefined({ message: "비밀번호 변환 설정이 없습니다." })
   @ValidateNested() @Type(() => KdfParamsDto)
   kdfParams: KdfParamsDto;
 

@@ -163,8 +163,8 @@ export async function quickSession(
   );
   const token = randomToken();
   await ds.query(
-    `INSERT INTO sessions (id, token_hash, user_id, stage, expires_at)
-     VALUES ($1, $2, $3, 'full', now() + interval '1 hour')`,
+    `INSERT INTO sessions (id, token_hash, user_id, auth_version, stage, expires_at)
+     VALUES ($1, $2, $3, 1, 'full', now() + interval '1 hour')`,
     [randomUUID(), hashToken(deriveServerKeys(TEST_APP_SECRET_KEY).token, token), material.id],
   );
   return { client: new Client(app, `km_session=${token}`), userId: material.id };

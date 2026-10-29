@@ -30,6 +30,8 @@ export class AddAccountsAndVault1793255909792 implements MigrationInterface {
         totp_last_step bigint,
         backup_codes jsonb NOT NULL DEFAULT '[]'::jsonb,
         failed_attempts int NOT NULL DEFAULT 0,
+        -- 인증 버전: 비밀번호·2단계 인증·복구 상태가 바뀔 때마다 1씩 올려 그 전의 세션을 한꺼번에 무효로 만든다.
+        auth_version int NOT NULL DEFAULT 1,
         locked_until timestamptz,
         last_login_at timestamptz,
         invited_by uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -77,6 +79,8 @@ export class AddAccountsAndVault1793255909792 implements MigrationInterface {
         id uuid PRIMARY KEY,
         token_hash varchar(64) NOT NULL UNIQUE,
         user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        -- 세션을 만들 때의 사용자 인증 버전. 사용자 쪽 값과 다르면 그 세션은 쓸 수 없다.
+        auth_version int NOT NULL,
         stage varchar(20) NOT NULL
           CHECK (stage IN ('pending_totp', 'enroll_totp', 'recovery_enroll', 'recovery', 'full')),
         expires_at timestamptz NOT NULL,

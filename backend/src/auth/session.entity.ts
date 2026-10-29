@@ -15,6 +15,10 @@ export class Session {
   @Column({ name: "user_id", type: "uuid" })
   userId: string;
 
+  // 세션을 만들 때의 사용자 인증 버전. 사용자 쪽 값이 올라가면 이 세션은 더 쓸 수 없다.
+  @Column({ name: "auth_version", type: "int" })
+  authVersion: number;
+
   @Column({ type: "varchar", length: 20 })
   stage: SessionStage;
 

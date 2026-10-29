@@ -119,6 +119,56 @@ describe("계정 절차", () => {
     expect(events).toHaveLength(1);
   });
 
+  it("잠긴 동안 틀린 값에는 없는 아이디와 같은 401을 주고, 맞는 값에만 잠김을 알린다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const client = new Client(app);
+    for (let i = 0; i < 5; i++) {
+      await client.post("/auth/login", { loginId: "admin", authValue: b64u(32) }).expect(401);
+    }
+    const lockedWrong = await client.post("/auth/login", { loginId: "admin", authValue: b64u(32) }).expect(401);
+    const unknown = await client.post("/auth/login", { loginId: "nobody", authValue: b64u(32) }).expect(401);
+    expect(lockedWrong.body.error).toBe(unknown.body.error);
+    await client.post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(429);
+  });
+
+  it("2단계 인증 등록을 마치면 등록 전에 만든 다른 등록 세션은 쓸 수 없다", async () => {
+    const code = await app.get(SetupCodeService).refresh();
+    const material = accountMaterial();
+    const first = new Client(app);
+    await first
+      .post("/auth/setup", { ...material, setupCode: code, loginId: "admin", name: "관리자", adminGrantSig: sigBlob() })
+      .expect(200);
+    // 2단계 인증을 아직 등록하지 않은 계정으로 다른 창에서 로그인하면 등록 단계 세션이 하나 더 생긴다.
+    const second = new Client(app);
+    const login = await second.post("/auth/login", { loginId: "admin", authValue: material.authValue }).expect(200);
+    expect(login.body).toEqual({ next: "enroll_totp" });
+    await finishEnrollment(first, material, "admin", clock);
+    await second.post("/auth/totp/enroll/start").expect(401);
+    await first.get("/auth/me").expect(200);
+  });
+
+  it("같은 인증 대기 세션으로 두 요청이 동시에 와도 정상 세션은 하나만 생긴다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const countFull = async (): Promise<number> =>
+      (
+        await ds.query("SELECT id FROM sessions WHERE stage = 'full' AND revoked_at IS NULL AND user_id = $1", [
+          admin.material.id,
+        ])
+      ).length;
+    const before = await countFull();
+    const client = new Client(app);
+    await client.post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(200);
+    const codeA = totpCode(admin.totpSecret, clock);
+    const codeB = totpCode(admin.totpSecret, clock);
+    clock.tick(-30_000);
+    const results = await Promise.all([
+      client.post("/auth/login/totp", { code: codeA }),
+      client.post("/auth/login/totp", { code: codeB }),
+    ]);
+    expect(results.map((res) => res.status).sort()).toEqual([200, 401]);
+    expect(await countFull()).toBe(before + 1);
+  });
+
   it("예비 코드로 로그인하면 2단계 인증을 새로 등록해야 하고, 같은 예비 코드는 다시 못 쓴다", async () => {
     const admin = await setupFirstAdmin(app, clock);
     const client = new Client(app);

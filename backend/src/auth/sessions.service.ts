@@ -1,6 +1,6 @@
 // 로그인 세션을 만들고·다음 단계로 바꾸고·폐기하며, 요청의 쿠키로 세션과 사용자를 찾는 서비스
 import { randomUUID } from "node:crypto";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Request, Response } from "express";
 import { type EntityManager, IsNull, type Repository } from "typeorm";
@@ -41,12 +41,16 @@ export class SessionsService {
     res: Response,
     manager?: EntityManager,
   ): Promise<Session> {
+    // 같은 트랜잭션 안에서 방금 올린 인증 버전까지 읽어 새 세션에 담는다.
+    const user = await (manager ? manager.getRepository(User) : this.users).findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException("로그인이 필요해요.");
     const token = randomToken();
     const repo = manager ? manager.getRepository(Session) : this.sessions;
     const session = repo.create({
       id: randomUUID(),
       tokenHash: hashToken(this.keys.token, token),
       userId,
+      authVersion: user.authVersion,
       stage,
       expiresAt: new Date(Date.now() + SESSION_TTL_MS[stage]),
       revokedAt: null,
@@ -72,7 +76,12 @@ export class SessionsService {
     res: Response,
     manager?: EntityManager,
   ): Promise<Session> {
-    await this.revoke(current.id, manager);
+    // 이 세션을 폐기한 요청만 다음 단계로 갈 수 있다. 같은 세션으로 두 요청이 동시에 와도 한 번만 성공한다.
+    const repo = manager ? manager.getRepository(Session) : this.sessions;
+    const result = await repo.update({ id: current.id, revokedAt: IsNull() }, { revokedAt: new Date() });
+    if ((result.affected ?? 0) !== 1) {
+      throw new UnauthorizedException("이 로그인 단계는 이미 끝났어요. 처음부터 다시 로그인하세요.");
+    }
     return this.start(current.userId, stage, req, res, manager);
   }
 
@@ -84,13 +93,19 @@ export class SessionsService {
     });
     if (!session || session.expiresAt.getTime() <= Date.now()) return null;
     const user = await this.users.findOne({ where: { id: session.userId } });
-    if (!user || user.status === "disabled") return null;
+    if (!user || user.status === "disabled" || user.authVersion !== session.authVersion) return null;
     return { session, user };
   }
 
   async revoke(sessionId: string, manager?: EntityManager): Promise<void> {
     const repo = manager ? manager.getRepository(Session) : this.sessions;
     await repo.update({ id: sessionId, revokedAt: IsNull() }, { revokedAt: new Date() });
+  }
+
+  // 비밀번호·2단계 인증·복구 상태가 바뀔 때 부른다. 그 전의 모든 세션(어느 단계든)이 한꺼번에 무효가 된다.
+  async bumpAuthVersion(userId: string, manager?: EntityManager): Promise<void> {
+    const repo = manager ? manager.getRepository(User) : this.users;
+    await repo.increment({ id: userId }, "authVersion", 1);
   }
 
   async revokeAllForUser(userId: string, manager?: EntityManager): Promise<void> {

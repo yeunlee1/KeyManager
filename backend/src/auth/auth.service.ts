@@ -155,8 +155,13 @@ export class AuthService implements OnModuleInit {
       });
       throw new UnauthorizedException(BAD_LOGIN);
     }
-    this.assertNotLocked(user);
+    // 잠긴 계정도 확인 계산을 먼저 해서, 응답 시간으로 계정이 있는지·잠겼는지 알 수 없게 한다.
     const ok = await verifySecret(fromB64u(dto.authValue), { hash: user.authHash, salt: user.authSalt });
+    if (this.isLocked(user)) {
+      // 맞는 값을 넣은 본인에게만 잠김을 알리고, 틀린 값에는 없는 아이디와 같은 응답을 준다.
+      if (ok) throw this.lockedError();
+      throw new UnauthorizedException(BAD_LOGIN);
+    }
     if (!ok) {
       await this.registerFailure(user, "login_failed", req);
       throw new UnauthorizedException(BAD_LOGIN);
@@ -194,7 +199,7 @@ export class AuthService implements OnModuleInit {
         await this.registerFailure(user, "backup_code_failed", req);
         throw new UnauthorizedException("예비 코드가 맞지 않아요.");
       }
-      // 휴대폰을 잃었을 수 있으므로 옛 2단계 인증을 지우고 새로 등록하게 한다.
+      // 휴대폰을 잃었을 수 있으므로 옛 2단계 인증을 지우고 새로 등록하게 한다. 다른 세션은 모두 무효가 된다.
       await this.dataSource.transaction(async (manager) => {
         await manager.update(User, user.id, {
           totpSecretEnc: null,
@@ -203,6 +208,7 @@ export class AuthService implements OnModuleInit {
           failedAttempts: 0,
           lockedUntil: null,
         });
+        await this.sessions.bumpAuthVersion(user.id, manager);
         await this.sessions.advance(auth.session, "enroll_totp", req, res, manager);
         await this.audit.record(
           { actorUserId: user.id, action: "backup_code_used", targetType: "user", targetId: user.id, request: req },
@@ -250,6 +256,8 @@ export class AuthService implements OnModuleInit {
         lockedUntil: null,
         ...(next === "full" ? { lastLoginAt: new Date() } : {}),
       });
+      // 등록을 마치면 등록 전에 만든 다른 세션(다른 창의 등록 단계 세션 등)을 모두 무효로 한다.
+      await this.sessions.bumpAuthVersion(user.id, manager);
       await this.sessions.advance(auth.session, next, req, res, manager);
       await this.audit.record(
         { actorUserId: user.id, action: "totp_enrolled", targetType: "user", targetId: user.id, request: req },
@@ -303,7 +311,7 @@ export class AuthService implements OnModuleInit {
         failedAttempts: 0,
       });
       // 다른 곳의 세션은 모두 끊고, 지금 화면은 새 세션으로 이어서 쓴다.
-      await this.sessions.revokeAllForUser(user.id, manager);
+      await this.sessions.bumpAuthVersion(user.id, manager);
       await this.sessions.start(user.id, "full", req, res, manager);
       await this.audit.record(
         { actorUserId: user.id, action: "password_changed", targetType: "user", targetId: user.id, request: req },
@@ -323,11 +331,14 @@ export class AuthService implements OnModuleInit {
       await this.audit.record({ action: "recovery_failed", result: "fail", detail: { loginId: dto.loginId }, request: req });
       throw new UnauthorizedException(BAD_RECOVERY);
     }
-    this.assertNotLocked(user);
     const ok = await verifySecret(fromB64u(dto.recoveryAuthValue), {
       hash: user.recoveryAuthHash,
       salt: user.recoveryAuthSalt,
     });
+    if (this.isLocked(user)) {
+      if (ok) throw this.lockedError();
+      throw new UnauthorizedException(BAD_RECOVERY);
+    }
     if (!ok) {
       await this.registerFailure(user, "recovery_failed", req);
       throw new UnauthorizedException(BAD_RECOVERY);
@@ -353,7 +364,8 @@ export class AuthService implements OnModuleInit {
     } else {
       throw new BadRequestException("인증 코드나 예비 코드를 입력하세요.");
     }
-    await this.sessions.revokeAllForUser(user.id);
+    // 복구를 시작하면 이 사람의 다른 세션은 모두 무효가 된다(비밀번호를 잃었으니 다른 세션은 남의 것일 수 있다).
+    await this.sessions.bumpAuthVersion(user.id);
     await this.sessions.start(user.id, stage, req, res);
     await this.audit.record({
       actorUserId: user.id,
@@ -387,7 +399,7 @@ export class AuthService implements OnModuleInit {
         lockedUntil: null,
         lastLoginAt: new Date(),
       });
-      await this.sessions.revokeAllForUser(auth.user.id, manager);
+      await this.sessions.bumpAuthVersion(auth.user.id, manager);
       await this.sessions.start(auth.user.id, "full", req, res, manager);
       await this.audit.record(
         { actorUserId: auth.user.id, action: "recovery_completed", targetType: "user", targetId: auth.user.id, request: req },
@@ -405,13 +417,20 @@ export class AuthService implements OnModuleInit {
     }
   }
 
+  private isLocked(user: User): boolean {
+    return user.lockedUntil !== null && user.lockedUntil.getTime() > Date.now();
+  }
+
+  private lockedError(): HttpException {
+    return new HttpException(
+      "틀린 시도가 많아 잠시 잠겼어요. 15분 뒤 다시 시도하세요.",
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+
+  // 이미 비밀번호로 본인임을 확인한 단계(인증 코드·비밀번호 바꾸기·관리자 본인 확인)에서만 쓴다.
   private assertNotLocked(user: User): void {
-    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-      throw new HttpException(
-        "틀린 시도가 많아 잠시 잠겼어요. 15분 뒤 다시 시도하세요.",
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
+    if (this.isLocked(user)) throw this.lockedError();
   }
 
   // 코드가 맞고, 이미 쓴 구간보다 뒤의 구간일 때만 받는다. 같은 코드가 동시에 와도 한 번만 성공하도록 조건부로 갱신한다.
