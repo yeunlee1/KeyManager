@@ -5,6 +5,7 @@ import request from "supertest";
 import { DataSource } from "typeorm";
 import { VERSION_OPTIONS } from "../src/categories/constants.js";
 import { createTestApp } from "./setup/test-app.js";
+import { quickSession } from "./setup/vault-fixtures.js";
 
 describe("상태 확인·카테고리 API", () => {
   let app: NestExpressApplication;
@@ -33,7 +34,9 @@ describe("상태 확인·카테고리 API", () => {
   });
 
   it("categories는 Windows·MS_Office·Hancom 세 키와 버전 목록을 그대로 돌려준다", async () => {
-    const res = await request(http).get("/categories").expect(200);
+    // categories는 라이선스 등록 화면용이라 로그인이 필요하다.
+    const { client } = await quickSession(app, app.get(DataSource));
+    const res = await client.get("/categories").expect(200);
     expect(Object.keys(res.body)).toEqual(["Windows", "MS_Office", "Hancom"]);
     expect(res.body).toEqual(VERSION_OPTIONS);
   });

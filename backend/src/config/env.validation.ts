@@ -13,6 +13,8 @@ export interface AppEnv {
   APP_SECRET_KEY: string;
   // 세션 쿠키에 Secure를 붙일지. 기본은 켬이고 COOKIE_SECURE=false일 때만 끈다.
   COOKIE_SECURE: boolean;
+  // 인증 요청(설정·로그인·복구·초대 조회·수락)을 IP마다 1분에 몇 번까지 받을지. 기본 20.
+  AUTH_RATE_LIMIT: number;
 }
 
 function readString(raw: Record<string, unknown>, name: string, fallback: string): string {
@@ -46,6 +48,16 @@ function readSecretKey(raw: Record<string, unknown>): string {
   return key;
 }
 
+function readPositiveInt(raw: Record<string, unknown>, name: string, fallback: number): number {
+  const value = raw[name];
+  if (value === undefined || value === "") return fallback;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 1) {
+    throw new Error(`${name} 환경변수는 1 이상의 정수여야 합니다. (현재 값: ${String(value)})`);
+  }
+  return number;
+}
+
 function readBoolean(raw: Record<string, unknown>, name: string, fallback: boolean): boolean {
   const value = raw[name];
   if (value === undefined || value === "") return fallback;
@@ -74,5 +86,6 @@ export function validateEnv(raw: Record<string, unknown>): AppEnv {
     CORS_ORIGIN: readString(raw, "CORS_ORIGIN", "http://localhost:3000"),
     APP_SECRET_KEY: readSecretKey(raw),
     COOKIE_SECURE: readBoolean(raw, "COOKIE_SECURE", true),
+    AUTH_RATE_LIMIT: readPositiveInt(raw, "AUTH_RATE_LIMIT", 20),
   };
 }

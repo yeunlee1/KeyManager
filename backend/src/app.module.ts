@@ -1,13 +1,17 @@
 // 설정·DB 연결·기능 모듈을 묶는 루트 모듈
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { AuditModule } from "./audit/audit.module.js";
+import { AuthModule } from "./auth/auth.module.js";
 import { CategoriesModule } from "./categories/categories.module.js";
 import { type AppEnv, validateEnv } from "./config/env.validation.js";
 import { readAppEnv } from "./config/read-app-env.js";
 import { buildDataSourceOptions } from "./database/typeorm.options.js";
 import { HealthModule } from "./health/health.module.js";
 import { LicensesModule } from "./licenses/licenses.module.js";
+import { APP_ENV, SecurityModule } from "./security/security.module.js";
 
 @Module({
   imports: [
@@ -22,6 +26,14 @@ import { LicensesModule } from "./licenses/licenses.module.js";
         retryDelay: 1000,
       }),
     }),
+    SecurityModule,
+    // 인증 요청 시도 제한(IP마다 1분에 AUTH_RATE_LIMIT번). 실제 적용은 AuthController 등에서 ThrottlerGuard로 한다.
+    ThrottlerModule.forRootAsync({
+      inject: [APP_ENV],
+      useFactory: (env: AppEnv) => [{ ttl: 60_000, limit: env.AUTH_RATE_LIMIT }],
+    }),
+    AuditModule,
+    AuthModule,
     HealthModule,
     CategoriesModule,
     LicensesModule,

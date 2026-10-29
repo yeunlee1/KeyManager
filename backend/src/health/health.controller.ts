@@ -3,11 +3,14 @@ import { Controller, Get, Res } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import type { Response } from "express";
 import { DataSource } from "typeorm";
+import { Public } from "../auth/auth.decorators.js";
 
 export interface HealthStatus {
   status: "ok" | "error";
 }
 
+// 로그인 화면에서도 서버 연결 상태를 보여 줘야 하므로 로그인 없이 부를 수 있다.
+@Public()
 @Controller("health")
 export class HealthController {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}

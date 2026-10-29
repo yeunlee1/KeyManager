@@ -24,6 +24,8 @@ export function loadTestEnv(): AppEnv {
   process.env.APP_SECRET_KEY = TEST_APP_SECRET_KEY;
   // supertest는 http로 요청하므로 Secure 쿠키를 돌려보내지 않는다. 시험에서만 끈다.
   process.env.COOKIE_SECURE = "false";
+  // 시험은 같은 IP에서 인증 요청을 많이 보내므로 넉넉히 둔다. 시도 제한 시험은 파일 안에서 따로 낮춘다.
+  process.env.AUTH_RATE_LIMIT ??= "1000";
   const env = validateEnv(process.env);
   assertTestDatabase(env.DB_NAME);
   return env;
@@ -50,6 +52,17 @@ export async function createTestDataSource(
   };
   assertTestDatabase(options.database);
   return new DataSource(options).initialize();
+}
+
+// 계정·금고·열람 기록 표를 모두 비운다(시험 DB에서만).
+export async function truncateAccounts(ds: DataSource): Promise<void> {
+  assertTestDatabase(ds.options.database);
+  const rows: { name: string }[] = await ds.query("SELECT current_database() AS name");
+  assertTestDatabase(rows[0]?.name);
+  await ds.query(
+    `TRUNCATE audit_events, vault_items, vault_group_access, vault_groups, sessions,
+       trust_records, invites, users RESTART IDENTITY CASCADE`,
+  );
 }
 
 export async function truncateLicenseKeys(ds: DataSource): Promise<void> {

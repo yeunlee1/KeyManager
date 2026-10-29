@@ -13,5 +13,6 @@ export function readAppEnv(config: ConfigService<AppEnv, true>): AppEnv {
     CORS_ORIGIN: config.get("CORS_ORIGIN", { infer: true }),
     APP_SECRET_KEY: config.get("APP_SECRET_KEY", { infer: true }),
     COOKIE_SECURE: config.get("COOKIE_SECURE", { infer: true }),
+    AUTH_RATE_LIMIT: config.get("AUTH_RATE_LIMIT", { infer: true }),
   };
 }

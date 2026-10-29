@@ -38,7 +38,10 @@ describe("InitLicenseKeys 마이그레이션", () => {
   });
 
   beforeEach(async () => {
-    await ds.query("DROP TABLE IF EXISTS license_keys, migrations CASCADE");
+    await ds.query(
+      `DROP TABLE IF EXISTS audit_events, vault_items, vault_group_access, vault_groups, sessions,
+        trust_records, invites, users, license_keys, migrations CASCADE`,
+    );
   });
 
   afterAll(async () => {

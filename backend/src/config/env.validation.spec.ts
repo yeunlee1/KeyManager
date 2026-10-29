@@ -24,6 +24,7 @@ describe("validateEnv", () => {
       CORS_ORIGIN: "http://localhost:3000",
       APP_SECRET_KEY: KEY,
       COOKIE_SECURE: true,
+      AUTH_RATE_LIMIT: 20,
     });
   });
 
@@ -52,6 +53,13 @@ describe("validateEnv", () => {
         "APP_SECRET_KEY",
       );
     }
+  });
+
+  it("AUTH_RATE_LIMIT는 1 이상의 정수만 받는다", () => {
+    const base = { DB_PASSWORD: "pw", APP_SECRET_KEY: KEY };
+    expect(validateEnv({ ...base, AUTH_RATE_LIMIT: "500" }).AUTH_RATE_LIMIT).toBe(500);
+    expect(() => validateEnv({ ...base, AUTH_RATE_LIMIT: "0" })).toThrow("AUTH_RATE_LIMIT");
+    expect(() => validateEnv({ ...base, AUTH_RATE_LIMIT: "많이" })).toThrow("AUTH_RATE_LIMIT");
   });
 
   it("COOKIE_SECURE는 false라고 적었을 때만 끄고, true·false가 아닌 값은 막는다", () => {
