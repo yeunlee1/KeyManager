@@ -52,6 +52,13 @@ export function totpCode(secret: string, clock: FakeClock): string {
   });
 }
 
+// 응답의 Set-Cookie에서 세션 토큰만 꺼낸다(로그아웃·폐기 뒤 옛 토큰으로 다시 요청해 보는 시험용).
+export function sessionTokenOf(res: { headers: Record<string, unknown> }): string {
+  const match = /km_session=([^;]+)/.exec(String(res.headers["set-cookie"]));
+  if (!match) throw new Error("응답에 세션 쿠키가 없습니다.");
+  return match[1];
+}
+
 // 쿠키를 기억하고, 상태를 바꾸는 요청에는 CSRF 머리글을 붙이는 시험용 브라우저.
 // fixedCookie를 주면 그 쿠키를 모든 요청에 직접 붙인다(DB에 바로 넣은 세션용).
 export class Client {
@@ -85,6 +92,8 @@ export class Client {
 
 export interface SignedInUser {
   client: Client;
+  // 처음 설정에 실제로 쓴 코드(처음 설정으로 만든 경우만)
+  setupCode?: string;
   material: AccountMaterial;
   loginId: string;
   totpSecret: string;
@@ -104,7 +113,7 @@ export async function setupFirstAdmin(
   await client
     .post("/auth/setup", { ...material, setupCode: code, loginId, name: "관리자", adminGrantSig: sigBlob() })
     .expect(200);
-  return finishEnrollment(client, material, loginId, clock);
+  return { ...(await finishEnrollment(client, material, loginId, clock)), setupCode: code };
 }
 
 export async function finishEnrollment(

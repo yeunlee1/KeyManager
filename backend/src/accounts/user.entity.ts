@@ -18,7 +18,8 @@ export class User {
   @PrimaryColumn("uuid")
   id: string;
 
-  @Column({ name: "login_id", type: "varchar", length: 64 })
+  // DB 마이그레이션의 UNIQUE와 같게 표시해 둔다(migration:generate가 제약을 지우자고 하지 않게).
+  @Column({ name: "login_id", type: "varchar", length: 64, unique: true })
   loginId: string;
 
   @Column({ type: "varchar", length: 100 })

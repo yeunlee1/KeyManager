@@ -9,7 +9,7 @@ export class Session {
   @PrimaryColumn("uuid")
   id: string;
 
-  @Column({ name: "token_hash", type: "varchar", length: 64 })
+  @Column({ name: "token_hash", type: "varchar", length: 64, unique: true })
   tokenHash: string;
 
   @Column({ name: "user_id", type: "uuid" })

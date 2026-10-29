@@ -7,7 +7,7 @@ export class Invite {
   @PrimaryColumn("uuid")
   id: string;
 
-  @Column({ name: "token_hash", type: "varchar", length: 64 })
+  @Column({ name: "token_hash", type: "varchar", length: 64, unique: true })
   tokenHash: string;
 
   @Column({ name: "login_id", type: "varchar", length: 64 })

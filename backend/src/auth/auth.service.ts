@@ -46,6 +46,7 @@ export const DEFAULT_KDF: KdfParams = { algorithm: "argon2id", memoryKiB: 65536,
 const MAX_FAILURES = 5;
 const BAD_LOGIN = "아이디 또는 비밀번호가 맞지 않아요.";
 const BAD_RECOVERY = "아이디 또는 복구 키가 맞지 않아요.";
+const STATE_CHANGED = "그 사이 로그인 상태가 바뀌었어요. 처음부터 다시 하세요.";
 const BAD_CODE = "인증 코드가 맞지 않아요. 인증 앱에 보이는 6자리를 다시 확인하세요.";
 
 const fromB64u = (value: string): Buffer => Buffer.from(value, "base64url");
@@ -168,7 +169,8 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException(BAD_LOGIN);
     }
     const enrolled = user.totpSecretEnc !== null;
-    await this.sessions.start(user.id, enrolled ? "pending_totp" : "enroll_totp", req, res);
+    // 비밀번호를 확인한 그 시점의 인증 버전을 세션에 담는다. 그 사이 다른 곳에서 바뀌었으면 이 세션은 바로 무효다.
+    await this.sessions.start(user.id, enrolled ? "pending_totp" : "enroll_totp", req, res, undefined, user.authVersion);
     return { next: enrolled ? "totp" : "enroll_totp" };
   }
 
@@ -180,28 +182,30 @@ export class AuthService implements OnModuleInit {
   ): Promise<{ next: "done" | "enroll_totp" }> {
     const { user } = auth;
     this.assertNotLocked(user);
-    if (dto.code) {
-      if (!(await this.acceptTotp(user, dto.code))) {
-        await this.registerFailure(user, "totp_failed", req);
-        throw new UnauthorizedException(BAD_CODE);
-      }
-      await this.dataSource.transaction(async (manager) => {
+    // 코드 소비와 세션 전이를 한 트랜잭션으로 묶는다. 뒤 단계가 실패하면 코드 소비도 함께 되돌아간다.
+    // 코드가 틀린 경우는 트랜잭션에서 false를 돌려주고, 실패 횟수는 트랜잭션 밖에서 센다(되돌림에 휩쓸리지 않게).
+    const { code, backupCode } = dto;
+    if (code) {
+      const accepted = await this.dataSource.transaction(async (manager) => {
+        if (!(await this.acceptTotp(user, code, manager))) return false;
         await manager.update(User, user.id, { failedAttempts: 0, lockedUntil: null, lastLoginAt: new Date() });
         await this.sessions.advance(auth.session, "full", req, res, manager);
         await this.audit.record(
           { actorUserId: user.id, action: "login_ok", targetType: "user", targetId: user.id, request: req },
           manager,
         );
+        return true;
       });
+      if (!accepted) {
+        await this.registerFailure(user, "totp_failed", req);
+        throw new UnauthorizedException(BAD_CODE);
+      }
       return { next: "done" };
     }
-    if (dto.backupCode) {
-      if (!(await this.consumeBackupCode(user.id, dto.backupCode))) {
-        await this.registerFailure(user, "backup_code_failed", req);
-        throw new UnauthorizedException("예비 코드가 맞지 않아요.");
-      }
+    if (backupCode) {
       // 휴대폰을 잃었을 수 있으므로 옛 2단계 인증을 지우고 새로 등록하게 한다. 다른 세션은 모두 무효가 된다.
-      await this.dataSource.transaction(async (manager) => {
+      const accepted = await this.dataSource.transaction(async (manager) => {
+        if (!(await this.consumeBackupCode(user.id, backupCode, manager))) return false;
         const version = await this.updateIfCurrent(manager, auth, {
           totpSecretEnc: null,
           totpPendingEnc: null,
@@ -214,7 +218,12 @@ export class AuthService implements OnModuleInit {
           { actorUserId: user.id, action: "backup_code_used", targetType: "user", targetId: user.id, request: req },
           manager,
         );
+        return true;
       });
+      if (!accepted) {
+        await this.registerFailure(user, "backup_code_failed", req);
+        throw new UnauthorizedException("예비 코드가 맞지 않아요.");
+      }
       return { next: "enroll_totp" };
     }
     throw new BadRequestException("인증 코드나 예비 코드를 입력하세요.");
@@ -343,38 +352,57 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException(BAD_RECOVERY);
     }
 
-    let stage: SessionStage;
-    if (user.totpSecretEnc === null) {
-      // 관리자가 2단계 인증을 초기화해 둔 경우: 새로 등록한 뒤 복구를 마친다.
-      stage = "recovery_enroll";
-    } else if (dto.code) {
-      if (!(await this.acceptTotp(user, dto.code))) {
-        await this.registerFailure(user, "totp_failed", req);
-        throw new UnauthorizedException(BAD_CODE);
-      }
-      stage = "recovery";
-    } else if (dto.backupCode) {
-      if (!(await this.consumeBackupCode(user.id, dto.backupCode))) {
-        await this.registerFailure(user, "backup_code_failed", req);
-        throw new UnauthorizedException("예비 코드가 맞지 않아요.");
-      }
-      await this.users.update(user.id, { totpSecretEnc: null, totpPendingEnc: null, totpLastStep: null });
-      stage = "recovery_enroll";
-    } else {
+    const { code, backupCode } = dto;
+    if (user.totpSecretEnc !== null && !code && !backupCode) {
       throw new BadRequestException("인증 코드나 예비 코드를 입력하세요.");
     }
-    // 복구를 시작하면 이 사람의 다른 세션은 모두 무효가 된다(비밀번호를 잃었으니 다른 세션은 남의 것일 수 있다).
-    await this.sessions.bumpAuthVersion(user.id);
-    await this.sessions.start(user.id, stage, req, res);
-    await this.audit.record({
-      actorUserId: user.id,
-      action: "recovery_started",
-      targetType: "user",
-      targetId: user.id,
-      detail: { withBackupCode: Boolean(dto.backupCode) },
-      request: req,
+    const outcome = await this.dataSource.transaction(async (manager) => {
+      let stage: SessionStage;
+      let clearTotp = false;
+      if (user.totpSecretEnc === null) {
+        // 관리자가 2단계 인증을 초기화해 둔 경우: 새로 등록한 뒤 복구를 마친다.
+        stage = "recovery_enroll";
+      } else if (code) {
+        if (!(await this.acceptTotp(user, code, manager))) return { failed: "totp_failed" as const };
+        stage = "recovery";
+      } else {
+        if (!backupCode || !(await this.consumeBackupCode(user.id, backupCode, manager))) {
+          return { failed: "backup_code_failed" as const };
+        }
+        clearTotp = true;
+        stage = "recovery_enroll";
+      }
+      // 복구 자격을 확인한 그 버전일 때만 올린다. 그 사이 다른 곳에서 바뀌었으면 거부한다.
+      // 버전이 올라가면 이 사람의 다른 세션은 모두 무효가 된다(비밀번호를 잃었으니 다른 세션은 남의 것일 수 있다).
+      const next = user.authVersion + 1;
+      const updated = await manager.update(
+        User,
+        { id: user.id, authVersion: user.authVersion },
+        {
+          authVersion: next,
+          ...(clearTotp ? { totpSecretEnc: null, totpPendingEnc: null, totpLastStep: null } : {}),
+        },
+      );
+      if ((updated.affected ?? 0) !== 1) throw new UnauthorizedException(STATE_CHANGED);
+      await this.sessions.start(user.id, stage, req, res, manager, next);
+      await this.audit.record(
+        {
+          actorUserId: user.id,
+          action: "recovery_started",
+          targetType: "user",
+          targetId: user.id,
+          detail: { withBackupCode: clearTotp },
+          request: req,
+        },
+        manager,
+      );
+      return { stage };
     });
-    return { next: stage === "recovery" ? "recovery" : "enroll_totp" };
+    if (outcome.failed) {
+      await this.registerFailure(user, outcome.failed, req);
+      throw new UnauthorizedException(outcome.failed === "totp_failed" ? BAD_CODE : "예비 코드가 맞지 않아요.");
+    }
+    return { next: outcome.stage === "recovery" ? "recovery" : "enroll_totp" };
   }
 
   recoverMaterial(auth: AuthContext) {
@@ -428,7 +456,7 @@ export class AuthService implements OnModuleInit {
       { ...changes, authVersion: next },
     );
     if ((result.affected ?? 0) !== 1) {
-      throw new UnauthorizedException("그 사이 로그인 상태가 바뀌었어요. 처음부터 다시 로그인하세요.");
+      throw new UnauthorizedException(STATE_CHANGED);
     }
     return next;
   }
@@ -450,12 +478,12 @@ export class AuthService implements OnModuleInit {
   }
 
   // 코드가 맞고, 이미 쓴 구간보다 뒤의 구간일 때만 받는다. 같은 코드가 동시에 와도 한 번만 성공하도록 조건부로 갱신한다.
-  private async acceptTotp(user: User, code: string): Promise<boolean> {
+  private async acceptTotp(user: User, code: string, manager?: EntityManager): Promise<boolean> {
     if (!user.totpSecretEnc) return false;
     const secret = openSecret(this.keys.totp, user.totpSecretEnc, `totp:${user.id}`);
     const result = verifyTotp(secret, code, user.totpLastStep, this.clock.now());
     if (!result.ok || result.step === null) return false;
-    const rows: unknown[] = await this.dataSource.query(
+    const rows: unknown[] = await (manager ?? this.dataSource).query(
       `WITH updated AS (
          UPDATE users SET totp_last_step = $2
          WHERE id = $1 AND (totp_last_step IS NULL OR totp_last_step < $2)
@@ -466,9 +494,9 @@ export class AuthService implements OnModuleInit {
     return rows.length === 1;
   }
 
-  private async consumeBackupCode(userId: string, input: string): Promise<boolean> {
+  private async consumeBackupCode(userId: string, input: string, manager?: EntityManager): Promise<boolean> {
     const hash = hashBackupCode(this.keys.backupCode, input);
-    const rows: unknown[] = await this.dataSource.query(
+    const rows: unknown[] = await (manager ?? this.dataSource).query(
       `WITH updated AS (
          UPDATE users SET backup_codes = backup_codes - $2::text
          WHERE id = $1 AND jsonb_exists(backup_codes, $2::text)

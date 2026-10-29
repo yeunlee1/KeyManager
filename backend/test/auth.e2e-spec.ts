@@ -4,8 +4,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DataSource } from "typeorm";
 import { TOTP_CLOCK } from "../src/auth/auth.service.js";
 import { SetupCodeService } from "../src/auth/setup-code.service.js";
+import { hashBackupCode } from "../src/security/backup-codes.js";
+import { deriveServerKeys } from "../src/security/server-keys.js";
 import { createTestApp } from "./setup/test-app.js";
-import { truncateAccounts } from "./setup/test-db.js";
+import { TEST_APP_SECRET_KEY, truncateAccounts } from "./setup/test-db.js";
 import {
   Client,
   FakeClock,
@@ -13,6 +15,7 @@ import {
   aesBlob,
   b64u,
   finishEnrollment,
+  sessionTokenOf,
   sigBlob,
   setupFirstAdmin,
   signIn,
@@ -47,9 +50,9 @@ describe("계정 절차", () => {
     expect(await ds.query("SELECT id FROM users")).toHaveLength(0);
   });
 
-  it("처음 설정 → 2단계 인증 등록으로 관리자가 생기고, 같은 코드로 다시 설정할 수 없다", async () => {
-    const code = await app.get(SetupCodeService).refresh();
+  it("처음 설정 → 2단계 인증 등록으로 관리자가 생기고, 실제로 쓴 코드로 다시 설정할 수 없다", async () => {
     const admin = await setupFirstAdmin(app, clock);
+    const code = admin.setupCode;
     expect(admin.backupCodes).toHaveLength(10);
     const me = await admin.client.get("/auth/me").expect(200);
     expect(me.body).toMatchObject({ loginId: "admin", role: "admin", status: "active" });
@@ -169,20 +172,32 @@ describe("계정 절차", () => {
     expect(await countFull()).toBe(before + 1);
   });
 
-  it("예비 코드로 로그인하면 2단계 인증을 새로 등록해야 하고, 같은 예비 코드는 다시 못 쓴다", async () => {
+  it("예비 코드로 로그인하면 2단계 인증을 새로 등록해야 하고, 쓴 예비 코드는 그 자리에서 목록에서 빠진다", async () => {
     const admin = await setupFirstAdmin(app, clock);
-    const client = new Client(app);
-    await client.post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(200);
+    const keys = deriveServerKeys(TEST_APP_SECRET_KEY);
     const backupCode = admin.backupCodes[0];
-    const used = await client.post("/auth/login/totp", { backupCode: backupCode.toLowerCase() }).expect(200);
-    expect(used.body).toEqual({ next: "enroll_totp" });
-    await client.get("/auth/me").expect(403);
-    const again = await finishEnrollment(client, admin.material, "admin", clock);
+    // 같은 예비 코드로 두 창에서 동시에 로그인해도 한 번만 성공한다.
+    const first = new Client(app);
+    const second = new Client(app);
+    for (const client of [first, second]) {
+      await client.post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(200);
+    }
+    const results = await Promise.all([
+      first.post("/auth/login/totp", { backupCode: backupCode.toLowerCase() }),
+      second.post("/auth/login/totp", { backupCode }),
+    ]);
+    expect(results.map((res) => res.status).sort()).toEqual([200, 401]);
+    // 다시 등록하기 전에 DB 목록에서 바로 그 코드만 빠졌는지 본다(재등록이 목록을 통째로 바꾸기 전).
+    const [row] = await ds.query(
+      "SELECT jsonb_array_length(backup_codes) AS n, jsonb_exists(backup_codes, $2) AS present FROM users WHERE id = $1",
+      [admin.material.id, hashBackupCode(keys.backupCode, backupCode)],
+    );
+    expect(row).toEqual({ n: 9, present: false });
+    const winner = results[0].status === 200 ? first : second;
+    expect(results.find((res) => res.status === 200)?.body).toEqual({ next: "enroll_totp" });
+    await winner.get("/auth/me").expect(403);
+    const again = await finishEnrollment(winner, admin.material, "admin", clock);
     await again.client.get("/auth/me").expect(200);
-
-    const other = new Client(app);
-    await other.post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(200);
-    await other.post("/auth/login/totp", { backupCode }).expect(401);
   });
 
   it("비밀번호를 바꾸면 다른 세션이 끊기고 새 확인값으로만 로그인된다", async () => {
@@ -254,8 +269,7 @@ describe("계정 절차", () => {
     await admin.client.get("/auth/me").expect(200);
   });
 
-  it("로그아웃하면 세션을 폐기하고, 세션 쿠키는 httpOnly·SameSite=Strict다", async () => {
-    await app.get(SetupCodeService).refresh();
+  it("로그아웃하면 서버에서 세션을 폐기하고, 세션 쿠키는 httpOnly·SameSite=Strict다", async () => {
     const code = await app.get(SetupCodeService).refresh();
     const client = new Client(app);
     const res = await client
@@ -265,7 +279,61 @@ describe("계정 절차", () => {
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("SameSite=Strict");
     expect(cookie).toContain("Path=/");
+    const token = sessionTokenOf(res);
     await client.post("/auth/logout").expect(204);
-    await client.post("/auth/totp/enroll/start").expect(401);
+    // 브라우저가 쿠키를 지운 것과 별개로, 옛 토큰을 그대로 다시 보내도 서버가 거부해야 한다.
+    await new Client(app, `km_session=${token}`).post("/auth/totp/enroll/start").expect(401);
+  });
+
+  it("같은 설정 코드로 두 요청이 동시에 와도 관리자는 한 명만 생긴다", async () => {
+    const code = await app.get(SetupCodeService).refresh();
+    const body = () => ({ ...accountMaterial(), setupCode: code, name: "관리자", adminGrantSig: sigBlob() });
+    const results = await Promise.all([
+      new Client(app).post("/auth/setup", { ...body(), loginId: "admin1" }),
+      new Client(app).post("/auth/setup", { ...body(), loginId: "admin2" }),
+    ]);
+    expect(results.filter((res) => res.status === 200)).toHaveLength(1);
+    expect(await ds.query("SELECT id FROM users")).toHaveLength(1);
+  });
+
+  it("만료된 세션은 쓸 수 없다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    await admin.client.get("/auth/me").expect(200);
+    await ds.query("UPDATE sessions SET expires_at = now() - interval '1 second' WHERE user_id = $1", [admin.material.id]);
+    await admin.client.get("/auth/me").expect(401);
+  });
+
+  it("잠김 시간이 지나면 다시 로그인할 수 있다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const client = new Client(app);
+    for (let i = 0; i < 5; i++) {
+      await client.post("/auth/login", { loginId: "admin", authValue: b64u(32) }).expect(401);
+    }
+    await client.post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(429);
+    await ds.query("UPDATE users SET locked_until = now() - interval '1 second' WHERE id = $1", [admin.material.id]);
+    await client.post("/auth/login", { loginId: "admin", authValue: admin.material.authValue }).expect(200);
+  });
+
+  it("복구를 마친 뒤 옛 복구 세션으로 완료 요청을 다시 보내면 거부한다", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const client = new Client(app);
+    const start = await client
+      .post("/auth/recover/start", {
+        loginId: "admin",
+        recoveryAuthValue: admin.material.recoveryAuthValue,
+        code: totpCode(admin.totpSecret, clock),
+      })
+      .expect(200);
+    const recoveryToken = sessionTokenOf(start);
+    const next = () => ({
+      kdfSalt: b64u(16),
+      kdfParams: admin.material.kdfParams,
+      authValue: b64u(32),
+      accountKeyMaster: aesBlob(),
+      recoveryAuthValue: b64u(32),
+      accountKeyRecovery: aesBlob(),
+    });
+    await client.post("/auth/recover/complete", next()).expect(204);
+    await new Client(app, `km_session=${recoveryToken}`).post("/auth/recover/complete", next()).expect(401);
   });
 });
