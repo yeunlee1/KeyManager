@@ -7,9 +7,10 @@
 - **React 19.3 + TypeScript 6.0.3 + Vite 8**
 - **Tailwind CSS 4.3 + `@tailwindcss/vite` + `tw-animate-css`** — CSS의 `@theme inline`과 `@custom-variant dark`로 토큰과 다크 모드를 관리한다. `<html>`의 `dark` 클래스로 토글한다.
 - **Vitest 5 + jsdom + Testing Library 16**, **ESLint 10** — 시험과 정적 검사
-- **Radix UI** (`@radix-ui/react-*`) + **shadcn/ui 스타일** — Select/Dialog/AlertDialog/Label 등
-  접근성 처리된 프리미티브를 Tailwind로 스타일링 (`components/ui/`)
-- **sonner** — 토스트 알림
+- **coss ui**(Base UI 기반, MIT) — 기본 컴포넌트 표준. shadcn CLI로 소스를 받아 `components/ui/`에 둔다.
+  색·글자·컴포넌트·화면 패턴 기준은 [프론트 표준](../docs/프론트-표준.md)을 따른다.
+- **Radix UI** (`@radix-ui/react-*`) + **sonner** — 옛 컴포넌트(`components/legacy/`). 지금 화면이 아직 쓰고 있으며,
+  새 디자인 단계에서 화면을 coss ui로 옮긴 뒤 지운다. 새 코드에서는 쓰지 않는다.
 - **lucide-react** — 아이콘
 - **Axios** — API 통신 (`src/api/`에서 한 곳으로 모아 관리)
 - **Pretendard**(가변 폰트, 한글 지원) + **JetBrains Mono**(라이선스 키 등 고정폭 텍스트용)
@@ -24,13 +25,13 @@ frontend/src/
 ├── types/                  # 공용 타입 (Item, CategoryStat, SelectOption 등)
 │   ├── item.ts
 │   └── ui.ts
-├── components/ui/          # 도메인과 무관한 범용 컴포넌트 (shadcn/ui 스타일 + Radix 프리미티브)
-│   ├── Select.tsx / SelectField.tsx  # 네이티브 select를 대체하는 커스텀 드롭다운
-│   ├── button.tsx, badge.tsx, input.tsx, label.tsx, skeleton.tsx, table.tsx
-│   ├── dialog.tsx, alert-dialog.tsx  # Radix 기반 모달/확인창 프리미티브
-│   ├── sonner.tsx           # 토스트 컨테이너 (실제 호출은 각 화면에서 `import { toast } from "sonner"`)
-│   ├── ConfirmDialog.tsx    # alert-dialog를 감싼 삭제 확인 모달
-│   └── PaginationComponent.tsx
+├── components/ui/          # coss ui 원본 컴포넌트 24개 (button, field, select, dialog, toast, table 등)
+│                            # 고칠 때는 docs/프론트-표준.md의 "coss ui 원본을 고칠 때"를 따른다
+├── components/legacy/      # 옛 Radix·sonner 컴포넌트 (지금 라이선스 화면이 사용, 새 디자인 후 삭제 예정)
+│   ├── Select.tsx / SelectField.tsx, button.tsx, badge.tsx, input.tsx, label.tsx, skeleton.tsx, table.tsx
+│   ├── dialog.tsx, alert-dialog.tsx, ConfirmDialog.tsx, PaginationComponent.tsx
+│   └── sonner.tsx           # 토스트 컨테이너 (화면에서 `import { toast } from "sonner"`)
+├── standard/               # 프론트 표준 견본 화면 (개발 서버에서 /standard.html, 운영 빌드에는 미포함)
 ├── features/licenses/      # 라이선스 관리 도메인 로직
 │   ├── ItemList.tsx         # 메인 컴포넌트 (상태 관리, 통계 카드, 툴바)
 │   ├── ItemListDisplay.tsx  # 테이블 렌더링, 인라인 편집(사용자명), 빈 상태
@@ -73,19 +74,16 @@ npm audit          # 개발 의존성을 포함한 알려진 취약점 검사
 ### 다크/라이트 모드 (`App.tsx`)
 
 우측 상단 토글 버튼으로 전환하며, 선택값은 `localStorage`(`km-theme`)에 저장되어 다음 방문에도 유지된다.
-기본값은 다크 모드.
+저장된 값이 없으면 라이트 모드로 연다(프론트 표준: 라이트 기본, 다크는 선택).
 
 ### 컬러 테마 (`index.css`)
 
-주요 색상은 `:root`/`.dark` 블록의 CSS 변수(HSL)로 중앙 관리한다 (`--primary`, `--ring` 등).
-Primary는 차분한 블루 계열(`217 91% 60%` / 다크 `213 94% 68%`)이며, 다크 모드의 아이콘·보더
-호버 포인트로는 청록(cyan) 한 가지만 절제해서 사용한다. 과거에 있던 인디고→fuchsia→cyan
-다색 그라디언트, 강한 블러 글로우, 진한 그림자 등 "네온사인" 톤은 정리했다 — 버튼/배지/탭 색상은
-`components/ui`와 `features/licenses`의 컴포넌트 클래스에도 일부 하드코딩되어 있으므로, 색을
-다시 바꿀 때는 `index.css`의 변수뿐 아니라 해당 컴포넌트들의 `blue-*`/`cyan-*` 클래스도 함께
-확인해야 한다.
+색은 coss ui의 색 체계(`@coss/colors-neutral`)를 따르는 CSS 변수로 관리하고, 포인트 색(`--primary`, `--ring`)만
+인디고로 바꿨다. 토큰 목록과 쓰는 규칙은 [프론트 표준](../docs/프론트-표준.md)에 있다. 지금 라이선스 화면
+(`features/licenses`, `components/legacy`)은 아직 `blue-*`·`slate-*` 같은 색을 직접 쓰고 있어서, 새 디자인 단계에서
+토큰으로 옮긴다.
 
-### Select (`components/ui/Select.tsx`, `SelectField.tsx`)
+### Select (`components/legacy/Select.tsx`, `SelectField.tsx`)
 
 브라우저 기본 `<select>`는 옵션 목록(팝업)의 스타일을 CSS로 제어할 수 없어 다크 모드에서
 배경만 어둡고 목록은 OS 기본 스타일로 뜨는 문제가 있었다. `@radix-ui/react-select` 프리미티브를
@@ -109,7 +107,7 @@ Tailwind의 `group` / `group-hover` 조합으로 순수 CSS 슬라이드 애니�
 (`translate-y-full → translate-y-0`)한다. 터치 기기는 hover가 없어 클릭으로도 토글 가능.
 우측 하단의 작은 셰브론 아이콘은 "펼쳐볼 수 있다"는 발견성 힌트.
 
-### 페이지네이션 그룹 (`components/ui/PaginationComponent.tsx`)
+### 페이지네이션 그룹 (`components/legacy/PaginationComponent.tsx`)
 
 페이지 번호를 `pagesToShow(=5)` 단위로 그룹화해 표시한다.
 
@@ -124,7 +122,7 @@ currentGroupFirstPage = floor((currentPage - 1) / pagesToShow) * pagesToShow + 1
 목록이 0건일 때, "검색/필터 때문에 안 보이는 것"과 "애초에 데이터가 없는 것"을 구분해서
 서로 다른 안내 문구 + 액션 버튼("필터 초기화" / "새 라이선스 등록")을 보여준다.
 
-### 테이블 열 너비 고정 (`components/ui/table.tsx`, `ItemListDisplay.tsx`)
+### 테이블 열 너비 고정 (`components/legacy/table.tsx`, `ItemListDisplay.tsx`)
 
 `Table`은 `table-fixed` 레이아웃을 쓴다. 기본값인 `table-auto`는 열 너비를 **현재 화면에 보이는
 행의 내용**으로 계산하기 때문에, 사용자명이 긴 행이 있는 페이지와 짧은 페이지 사이에서 카테고리/관리
