@@ -38,7 +38,7 @@ export class AddAccountsAndVault1793255909792 implements MigrationInterface {
         admin_granted_by uuid REFERENCES users(id) ON DELETE SET NULL,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT users_admin_grant_chk CHECK (role <> admin OR admin_grant_sig IS NOT NULL)
+        CONSTRAINT users_admin_grant_chk CHECK (role <> 'admin' OR admin_grant_sig IS NOT NULL)
       )
     `);
 
