@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Request, Response } from "express";
-import { type EntityManager, IsNull, type Repository } from "typeorm";
+import { type EntityManager, IsNull, MoreThan, type Repository } from "typeorm";
 import { User } from "../accounts/user.entity.js";
 import type { AppEnv } from "../config/env.validation.js";
 import { APP_ENV, SERVER_KEYS } from "../security/security.module.js";
@@ -40,17 +40,22 @@ export class SessionsService {
     req: Request,
     res: Response,
     manager?: EntityManager,
+    authVersion?: number,
   ): Promise<Session> {
-    // 같은 트랜잭션 안에서 방금 올린 인증 버전까지 읽어 새 세션에 담는다.
-    const user = await (manager ? manager.getRepository(User) : this.users).findOne({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException("로그인이 필요해요.");
+    // 버전을 주지 않으면(새 로그인) 같은 트랜잭션에서 사용자의 지금 인증 버전을 읽어 담는다.
+    let version = authVersion;
+    if (version === undefined) {
+      const user = await (manager ? manager.getRepository(User) : this.users).findOne({ where: { id: userId } });
+      if (!user) throw new UnauthorizedException("로그인이 필요해요.");
+      version = user.authVersion;
+    }
     const token = randomToken();
     const repo = manager ? manager.getRepository(Session) : this.sessions;
     const session = repo.create({
       id: randomUUID(),
       tokenHash: hashToken(this.keys.token, token),
       userId,
-      authVersion: user.authVersion,
+      authVersion: version,
       stage,
       expiresAt: new Date(Date.now() + SESSION_TTL_MS[stage]),
       revokedAt: null,
@@ -69,20 +74,26 @@ export class SessionsService {
   }
 
   // 단계가 바뀔 때마다 옛 토큰을 폐기하고 새 토큰을 발급한다(세션 고정 공격 방지).
+  // 새 세션은 지금 세션의 인증 버전을 물려받는다. 가드를 지난 뒤 다른 곳에서 버전이 바뀌었으면 새 세션도 바로 무효다.
+  // 상태를 바꾸는 전이(등록·비밀번호·복구)는 조건부로 올린 다음 버전을 nextAuthVersion으로 넘긴다.
   async advance(
     current: Session,
     stage: SessionStage,
     req: Request,
     res: Response,
     manager?: EntityManager,
+    nextAuthVersion: number = current.authVersion,
   ): Promise<Session> {
     // 이 세션을 폐기한 요청만 다음 단계로 갈 수 있다. 같은 세션으로 두 요청이 동시에 와도 한 번만 성공한다.
     const repo = manager ? manager.getRepository(Session) : this.sessions;
-    const result = await repo.update({ id: current.id, revokedAt: IsNull() }, { revokedAt: new Date() });
+    const result = await repo.update(
+      { id: current.id, revokedAt: IsNull(), expiresAt: MoreThan(new Date()) },
+      { revokedAt: new Date() },
+    );
     if ((result.affected ?? 0) !== 1) {
       throw new UnauthorizedException("이 로그인 단계는 이미 끝났어요. 처음부터 다시 로그인하세요.");
     }
-    return this.start(current.userId, stage, req, res, manager);
+    return this.start(current.userId, stage, req, res, manager, nextAuthVersion);
   }
 
   async resolve(req: Request): Promise<AuthContext | null> {

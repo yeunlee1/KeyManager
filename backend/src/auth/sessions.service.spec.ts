@@ -58,6 +58,23 @@ describe("SessionsService", () => {
     expect(rows.filter((row) => row.stage === "full")).toHaveLength(1);
   });
 
+  it("다음 단계 세션은 사용자의 지금 값이 아니라 지금 세션의 인증 버전을 물려받는다", async () => {
+    const { service, rows, req, res } = setup({ authVersion: 1 });
+    const pending = await service.start("u1", "pending_totp", req, res);
+    // 가드를 지난 뒤 다른 곳에서 비밀번호를 바꿔 사용자 버전이 3이 된 상황
+    const changed = setup({ authVersion: 3 });
+    changed.rows.push(...rows);
+    const next = await changed.service.advance(pending, "full", req, res);
+    expect(next.authVersion).toBe(1);
+  });
+
+  it("상태를 바꾸는 전이는 지정한 다음 버전을 새 세션에 담는다", async () => {
+    const { service, req, res } = setup({ authVersion: 4 });
+    const current = await service.start("u1", "enroll_totp", req, res);
+    const next = await service.advance(current, "full", req, res, undefined, 5);
+    expect(next.authVersion).toBe(5);
+  });
+
   it("사용자 인증 버전이 바뀌면 그 전에 만든 세션은 찾지 못한다", async () => {
     const { service, cookies, req, res } = setup({ authVersion: 1 });
     await service.start("u1", "full", req, res);

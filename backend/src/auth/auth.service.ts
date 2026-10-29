@@ -14,6 +14,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Request, Response } from "express";
 import { DataSource, type EntityManager, type Repository } from "typeorm";
+import type { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity.js";
 import { type KdfParams, User, type UserRole } from "../accounts/user.entity.js";
 import { AuditService } from "../audit/audit.service.js";
 import { type SecretHash, hashSecret, verifySecret } from "../security/auth-hash.js";
@@ -201,15 +202,14 @@ export class AuthService implements OnModuleInit {
       }
       // 휴대폰을 잃었을 수 있으므로 옛 2단계 인증을 지우고 새로 등록하게 한다. 다른 세션은 모두 무효가 된다.
       await this.dataSource.transaction(async (manager) => {
-        await manager.update(User, user.id, {
+        const version = await this.updateIfCurrent(manager, auth, {
           totpSecretEnc: null,
           totpPendingEnc: null,
           totpLastStep: null,
           failedAttempts: 0,
           lockedUntil: null,
         });
-        await this.sessions.bumpAuthVersion(user.id, manager);
-        await this.sessions.advance(auth.session, "enroll_totp", req, res, manager);
+        await this.sessions.advance(auth.session, "enroll_totp", req, res, manager, version);
         await this.audit.record(
           { actorUserId: user.id, action: "backup_code_used", targetType: "user", targetId: user.id, request: req },
           manager,
@@ -246,7 +246,7 @@ export class AuthService implements OnModuleInit {
     const codes = createBackupCodes();
     const next: SessionStage = auth.session.stage === "recovery_enroll" ? "recovery" : "full";
     await this.dataSource.transaction(async (manager) => {
-      await manager.update(User, user.id, {
+      const version = await this.updateIfCurrent(manager, auth, {
         totpSecretEnc: sealSecret(this.keys.totp, secret, `totp:${user.id}`),
         totpPendingEnc: null,
         totpLastStep: result.step,
@@ -256,9 +256,8 @@ export class AuthService implements OnModuleInit {
         lockedUntil: null,
         ...(next === "full" ? { lastLoginAt: new Date() } : {}),
       });
-      // 등록을 마치면 등록 전에 만든 다른 세션(다른 창의 등록 단계 세션 등)을 모두 무효로 한다.
-      await this.sessions.bumpAuthVersion(user.id, manager);
-      await this.sessions.advance(auth.session, next, req, res, manager);
+      // 등록을 마치면 버전이 올라가 등록 전에 만든 다른 세션(다른 창의 등록 단계 세션 등)이 모두 무효가 된다.
+      await this.sessions.advance(auth.session, next, req, res, manager, version);
       await this.audit.record(
         { actorUserId: user.id, action: "totp_enrolled", targetType: "user", targetId: user.id, request: req },
         manager,
@@ -302,7 +301,8 @@ export class AuthService implements OnModuleInit {
     }
     const next = await hashSecret(fromB64u(dto.authValue));
     await this.dataSource.transaction(async (manager) => {
-      await manager.update(User, user.id, {
+      // 확인한 뒤 그 사이 다른 곳에서 비밀번호가 바뀌었으면 덮어쓰지 않는다(버전 조건부 갱신).
+      const version = await this.updateIfCurrent(manager, auth, {
         kdfSalt: dto.kdfSalt,
         kdfParams: { ...dto.kdfParams },
         authHash: next.hash,
@@ -310,9 +310,8 @@ export class AuthService implements OnModuleInit {
         accountKeyMaster: dto.accountKeyMaster,
         failedAttempts: 0,
       });
-      // 다른 곳의 세션은 모두 끊고, 지금 화면은 새 세션으로 이어서 쓴다.
-      await this.sessions.bumpAuthVersion(user.id, manager);
-      await this.sessions.start(user.id, "full", req, res, manager);
+      // 다른 곳의 세션은 버전이 올라가 모두 끊기고, 지금 화면은 새 세션으로 이어서 쓴다.
+      await this.sessions.advance(auth.session, "full", req, res, manager, version);
       await this.audit.record(
         { actorUserId: user.id, action: "password_changed", targetType: "user", targetId: user.id, request: req },
         manager,
@@ -386,7 +385,7 @@ export class AuthService implements OnModuleInit {
     const login = await hashSecret(fromB64u(dto.authValue));
     const recovery = await hashSecret(fromB64u(dto.recoveryAuthValue));
     await this.dataSource.transaction(async (manager) => {
-      await manager.update(User, auth.user.id, {
+      const version = await this.updateIfCurrent(manager, auth, {
         kdfSalt: dto.kdfSalt,
         kdfParams: { ...dto.kdfParams },
         authHash: login.hash,
@@ -399,8 +398,7 @@ export class AuthService implements OnModuleInit {
         lockedUntil: null,
         lastLoginAt: new Date(),
       });
-      await this.sessions.bumpAuthVersion(auth.user.id, manager);
-      await this.sessions.start(auth.user.id, "full", req, res, manager);
+      await this.sessions.advance(auth.session, "full", req, res, manager, version);
       await this.audit.record(
         { actorUserId: auth.user.id, action: "recovery_completed", targetType: "user", targetId: auth.user.id, request: req },
         manager,
@@ -415,6 +413,24 @@ export class AuthService implements OnModuleInit {
       if (code) await this.registerFailure(user, "step_up_failed", req);
       throw new ForbiddenException("본인 확인용 인증 코드가 맞지 않아요.");
     }
+  }
+
+  // 세션을 만들 때의 인증 버전이 지금도 그대로일 때만 바꾸고 버전을 1 올린다. 그 사이 다른 곳에서 바뀌었으면 거부한다.
+  private async updateIfCurrent(
+    manager: EntityManager,
+    auth: AuthContext,
+    changes: QueryDeepPartialEntity<User>,
+  ): Promise<number> {
+    const next = auth.session.authVersion + 1;
+    const result = await manager.update(
+      User,
+      { id: auth.user.id, authVersion: auth.session.authVersion },
+      { ...changes, authVersion: next },
+    );
+    if ((result.affected ?? 0) !== 1) {
+      throw new UnauthorizedException("그 사이 로그인 상태가 바뀌었어요. 처음부터 다시 로그인하세요.");
+    }
+    return next;
   }
 
   private isLocked(user: User): boolean {
