@@ -1,7 +1,9 @@
 // 묶음 열쇠 사본의 권한 판단, 열쇠 교체(세대 올리기), 관리자 올리기의 서버 쪽 규칙. 서버는 열쇠를 풀지 못하고 목록·세대가 빠짐없는지만 확인한다.
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { type EntityManager, In } from "typeorm";
+import { type EntityManager, In, QueryFailedError } from "typeorm";
 import { User } from "../accounts/user.entity.js";
+import type { AuthContext } from "../auth/auth.decorators.js";
+import { Session } from "../auth/session.entity.js";
 import type { KeyShareDto } from "../accounts/dto/accounts.dto.js";
 import type { RotationDto } from "./dto/vault.dto.js";
 import { VaultGroupAccess } from "./vault-group-access.entity.js";
@@ -10,6 +12,8 @@ import { VaultItem } from "./vault-item.entity.js";
 
 // 관리자 작업을 한 번에 하나씩 처리하는 트랜잭션 잠금 번호(pg_advisory_xact_lock)
 export const ADMIN_OPERATIONS_LOCK = 4_242_001;
+// 관리자 작업 잠금을 기다리는 최대 시간
+export const ADMIN_LOCK_WAIT_MS = 5_000;
 
 const LIST_CHANGED = "열쇠를 받을 사람이나 항목 목록이 서버와 달라요. 새로 불러온 뒤 다시 하세요.";
 
@@ -24,8 +28,30 @@ export class VaultAccessService {
   // 관리자 작업(역할 바꾸기·비활성화·묶음 만들기·구성원 추가·빼기·관리자 올리기)은 이 잠금으로 한 번에 하나씩 처리한다.
   // 드문 작업이라 차례로 처리해도 느리지 않고, 서로 다른 행 잠금이 엇갈려 생기는 교착·빠짐(짝 검토)이 없어진다.
   // 같은 트랜잭션에서 다시 잡아도 된다(재진입 가능).
-  async lockAdminOperations(manager: EntityManager): Promise<void> {
-    await manager.query("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+  // 잠금을 기다리는 사이 다른 관리자가 이 사람을 내리거나 비활성화했거나 세션이 끝났을 수 있으니, 잡은 뒤 다시 확인한다(짝 재확인).
+  async lockAdminOperations(manager: EntityManager, auth: AuthContext): Promise<void> {
+    await this.holdAdminLock(manager);
+    const actor = await manager.getRepository(User).findOne({ where: { id: auth.user.id } });
+    const session = await manager.getRepository(Session).findOne({ where: { id: auth.session.id } });
+    const sessionAlive =
+      !!session && !session.revokedAt && session.expiresAt.getTime() > Date.now() && session.authVersion === actor?.authVersion;
+    if (!actor || actor.role !== "admin" || actor.status !== "active" || actor.authVersion !== auth.session.authVersion || !sessionAlive) {
+      throw new ForbiddenException("관리자 권한이나 로그인 상태가 바뀌었어요. 다시 로그인한 뒤 하세요.");
+    }
+  }
+
+  // 요청한 사람을 확인하지 않고 잠금만 잡는다. 이미 확인한 트랜잭션 안에서 다시 잡거나, 로그인 없는 초대 수락에서 쓴다.
+  // 기다림에는 상한을 둔다. 화면의 요청 시간 상한(10초)보다 짧아서, 응답을 포기한 요청이 나중에 처리되지 않는다(짝 재확인).
+  async holdAdminLock(manager: EntityManager): Promise<void> {
+    await manager.query(`SET LOCAL lock_timeout = '${ADMIN_LOCK_WAIT_MS}ms'`);
+    try {
+      await manager.query("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+    } catch (error) {
+      if (error instanceof QueryFailedError && (error.driverError as { code?: string } | undefined)?.code === "55P03") {
+        throw new ConflictException("다른 관리자 작업이 아직 끝나지 않았어요. 잠시 뒤 다시 하세요.");
+      }
+      throw error;
+    }
   }
 
   // 묶음 하나를 열 수 있는지(보기 이상). 관리자도 사본이 있어야 연다.
@@ -55,7 +81,7 @@ export class VaultAccessService {
     rotation: RotationDto,
     removed: ReadonlySet<string>,
   ): Promise<number> {
-    await this.lockAdminOperations(manager);
+    await this.holdAdminLock(manager);
     const group = await manager.getRepository(VaultGroup).findOne({
       where: { id: rotation.groupId },
       lock: { mode: "pessimistic_write" },
@@ -136,7 +162,7 @@ export class VaultAccessService {
     if (target.status !== "active") throw new ConflictException("가입을 마친 사람만 관리자로 올릴 수 있어요.");
     if (target.role === "admin") throw new ConflictException("이미 관리자예요.");
     // 올리는 동안 묶음이 새로 생기거나 열쇠가 바뀌지 않게 관리자 작업 잠금을 잡는다.
-    await this.lockAdminOperations(manager);
+    await this.holdAdminLock(manager);
     const groups = await manager.getRepository(VaultGroup).find();
     const existing = await manager.getRepository(VaultGroupAccess).find({ where: { userId: target.id } });
     const needed = groups.filter(

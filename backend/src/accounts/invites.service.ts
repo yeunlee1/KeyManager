@@ -58,7 +58,7 @@ export class InvitesService {
     }
     await this.dataSource.transaction(async (manager) => {
       // 같은 아이디로 두 관리자가 동시에 초대해도 하나만 생기게 관리자 작업 잠금을 잡는다(짝 검토).
-      await this.access.lockAdminOperations(manager);
+      await this.access.lockAdminOperations(manager, auth);
       if (await manager.getRepository(User).exists({ where: { loginId: dto.loginId } })) {
         throw new ConflictException("이미 같은 아이디의 사용자가 있어요.");
       }
@@ -161,6 +161,8 @@ export class InvitesService {
       invitedBy: preview.createdBy,
     });
     await this.dataSource.transaction(async (manager) => {
+      // 비활성화·역할 바꾸기와 같은 잠금 안에서 초대한 관리자를 읽어, 읽은 직후 그 관리자가 비활성화되는 틈을 없앤다(짝 재확인).
+      await this.access.holdAdminLock(manager);
       const invite = await this.findUsable(dto.token, manager, true);
       if (invite.id !== preview.id) throw new NotFoundException(NOT_FOUND);
       // 초대한 관리자가 비활성화됐거나 관리자가 아니게 됐으면 그 초대로는 가입할 수 없다(짝 검토).
@@ -221,7 +223,7 @@ export class InvitesService {
     // 관리자로 올리는 확인은 역할 바꾸기와 같이 본인 인증 코드를 받는다. 직원 초대 확인은 자동으로 한다.
     if (dto.promotion) await this.auth.verifyStepUp(auth.user, dto.totpCode, req);
     await this.dataSource.transaction(async (manager) => {
-      await this.access.lockAdminOperations(manager);
+      await this.access.lockAdminOperations(manager, auth);
       const invite = await manager.getRepository(Invite).findOne({ where: { id: inviteId }, lock: { mode: "pessimistic_write" } });
       if (!invite || invite.createdBy !== auth.user.id) throw new ForbiddenException("내가 만든 초대만 확인할 수 있어요.");
       if (!invite.usedAt || !invite.acceptedUserId || invite.revokedAt) throw new ConflictException("아직 수락하지 않은 초대예요.");

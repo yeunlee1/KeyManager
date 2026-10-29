@@ -6,7 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DataSource } from "typeorm";
 import { TOTP_CLOCK } from "../src/auth/auth.service.js";
 import { resetTotp } from "../src/cli/totp-reset.js";
-import { ADMIN_OPERATIONS_LOCK } from "../src/vault/vault-access.service.js";
+import { ADMIN_LOCK_WAIT_MS, ADMIN_OPERATIONS_LOCK } from "../src/vault/vault-access.service.js";
 import { createTestApp } from "./setup/test-app.js";
 import { loadTestEnv, truncateAccounts } from "./setup/test-db.js";
 import {
@@ -362,6 +362,99 @@ describe("금고·초대·사용자 관리", () => {
     expect(await expectBlockedUntilReleased(await lock(), () => admin.client.post(`/users/${lee.material.id}/disable`, { totpCode: code(admin), rotations: [] }))).toBe(204);
     expect(await expectBlockedUntilReleased(await lock(), () => admin.client.post("/invites", { id: randomUUID(), token: b64u(32), loginId: "park", name: "박", role: "member", expiresAt: new Date(Date.now() + 3_600_000).toISOString(), secretEnc: aesBlob(), inviterMac: b64u(32), totpCode: code(admin) }))).toBe(201);
     expect(await expectBlockedUntilReleased(await lock(), () => admin.client.patch(`/users/${kim.material.id}/role`, { role: "admin", totpCode: code(admin), promotion: { adminGrantSig: sigBlob(), keyShares: [{ groupId: newGroupId, generation: 1, wrappedKey: rsaBlob(), shareSignature: sigBlob() }] } }))).toBe(204);
+  });
+
+  it("잠금을 기다리는 사이 관리자에서 내려가면 기다리던 관리자 요청은 거절한다(짝 재확인)", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const kim = await joinAsMember(admin, "kim");
+    await admin.client.patch(`/users/${kim.material.id}/role`, { role: "admin", totpCode: code(admin), promotion: { adminGrantSig: sigBlob(), keyShares: [] } }).expect(204);
+    const holder = await holdWith("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+    try {
+      let finished = false;
+      const pending = Promise.resolve(
+        admin.client.patch(`/users/${admin.material.id}/role`, { role: "admin", totpCode: code(admin), promotion: { adminGrantSig: sigBlob(), keyShares: [] } }),
+      ).then((res) => {
+        finished = true;
+        return res;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(finished).toBe(false);
+      // 기다리는 동안 다른 관리자가 이 사람을 직원으로 내린 것과 같은 상태를 만든다.
+      await holder.query("UPDATE users SET role = 'member', admin_grant_sig = NULL, admin_granted_by = NULL WHERE id = $1", [admin.material.id]);
+      await holder.query("COMMIT");
+      expect((await pending).status).toBe(403);
+      const { rows } = await holder.query<{ role: string }>("SELECT role FROM users WHERE id = $1", [admin.material.id]);
+      expect(rows[0]?.role).toBe("member");
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
+  });
+
+  it("잠금을 기다리는 사이 세션이 끝나면 기다리던 관리자 요청은 거절하고 아무것도 만들지 않는다(짝 재확인)", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const groupId = randomUUID();
+    const holder = await holdWith("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+    try {
+      const pending = Promise.resolve(admin.client.post("/vault/groups", { id: groupId, nameEnc: aesBlob(), accesses: [grant(admin.material.id)] }));
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await holder.query("UPDATE sessions SET revoked_at = now() WHERE user_id = $1", [admin.material.id]);
+      await holder.query("COMMIT");
+      expect((await pending).status).toBe(403);
+      const { rows } = await holder.query("SELECT 1 FROM vault_groups WHERE id = $1", [groupId]);
+      expect(rows).toHaveLength(0);
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
+  });
+
+  it("관리자 작업 잠금을 너무 오래 기다리면 409로 끝내고 나중에 처리하지 않는다(짝 재확인)", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const groupId = randomUUID();
+    const holder = await holdWith("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+    try {
+      const started = Date.now();
+      const res = await admin.client.post("/vault/groups", { id: groupId, nameEnc: aesBlob(), accesses: [grant(admin.material.id)] });
+      expect(res.status).toBe(409);
+      expect(Date.now() - started).toBeGreaterThanOrEqual(ADMIN_LOCK_WAIT_MS - 100);
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
+    const check = await holdWith("SELECT 1");
+    try {
+      const { rows } = await check.query("SELECT 1 FROM vault_groups WHERE id = $1", [groupId]);
+      expect(rows).toHaveLength(0);
+    } finally {
+      await check.query("ROLLBACK").catch(() => undefined);
+      await check.end();
+    }
+  }, 20_000);
+
+  it("초대 수락은 관리자 작업 잠금 안에서 초대한 관리자를 확인한다(기다리는 사이 비활성화되면 거절, 짝 재확인)", async () => {
+    const admin = await setupFirstAdmin(app, clock);
+    const { token } = await createInvite(admin, clock, { loginId: "park" });
+    const holder = await holdWith("SELECT pg_advisory_xact_lock($1)", [ADMIN_OPERATIONS_LOCK]);
+    try {
+      let finished = false;
+      const pending = Promise.resolve(
+        new Client(app).post("/invites/accept", { ...accountMaterial(), token, acceptMac: b64u(32), inviterTrustRecordEnc: aesBlob(200) }),
+      ).then((res) => {
+        finished = true;
+        return res;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      expect(finished).toBe(false);
+      await holder.query("UPDATE users SET status = 'disabled' WHERE id = $1", [admin.material.id]);
+      await holder.query("COMMIT");
+      expect((await pending).status).toBe(404);
+      const { rows } = await holder.query("SELECT 1 FROM users WHERE login_id = 'park'");
+      expect(rows).toHaveLength(0);
+    } finally {
+      await holder.query("ROLLBACK").catch(() => undefined);
+      await holder.end();
+    }
   });
 
   it("항목 고치기는 묶음을 먼저 잠근 뒤 항목을 잠근다(열쇠 교체와 같은 순서라 교착하지 않는다)", async () => {

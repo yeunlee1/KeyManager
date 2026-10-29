@@ -68,7 +68,7 @@ export class VaultService {
     if (new Set(ids).size !== ids.length) throw new BadRequestException("같은 사람이 두 번 들어 있어요.");
     await this.dataSource.transaction(async (manager) => {
       // 관리자 올리기·비활성화와 겹치지 않게 관리자 작업 잠금을 잡은 뒤, 지금 관리자 전원의 사본이 들어 있는지 본다.
-      await this.access.lockAdminOperations(manager);
+      await this.access.lockAdminOperations(manager, auth);
       const admins = await manager.getRepository(User).find({ where: { role: "admin", status: "active" } });
       if (!admins.every((admin) => ids.includes(admin.id))) {
         throw new ConflictException("관리자 목록이 바뀌었어요. 새로 불러온 뒤 다시 만드세요.");
@@ -143,7 +143,7 @@ export class VaultService {
     if (!dto.shareSignature) throw new BadRequestException("권한을 바꾸려면 관리자 서명이 필요해요.");
     const signature = dto.shareSignature;
     await this.dataSource.transaction(async (manager) => {
-      await this.access.lockAdminOperations(manager);
+      await this.access.lockAdminOperations(manager, auth);
       const group = await manager.getRepository(VaultGroup).findOne({ where: { id: groupId }, lock: { mode: "pessimistic_write" } });
       if (!group) throw new NotFoundException("묶음이 없어요.");
       const user = await manager.getRepository(User).findOne({ where: { id: userId } });
@@ -189,7 +189,7 @@ export class VaultService {
 
   async removeMember(auth: AuthContext, groupId: string, userId: string, dto: RemoveMemberDto & { adminShareSignature?: string; adminShareGeneration?: number; adminShareWrappedKey?: string }, req: Request): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
-      await this.access.lockAdminOperations(manager);
+      await this.access.lockAdminOperations(manager, auth);
       const user = await manager.getRepository(User).findOne({ where: { id: userId } });
       const row = await this.access.accessOf(manager, groupId, userId);
       if (!row || !row.isMember) throw new NotFoundException("그 묶음의 구성원이 아니에요.");
