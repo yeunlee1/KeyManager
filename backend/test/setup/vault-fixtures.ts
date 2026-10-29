@@ -178,3 +178,47 @@ export async function quickSession(
   );
   return { client: new Client(app, `km_session=${token}`), userId: material.id };
 }
+
+// 관리자가 초대를 만든다(초대 비밀 S·MAC은 형식만 맞는 가짜 값). 링크에 들어갈 토큰을 돌려준다.
+export async function createInvite(
+  admin: SignedInUser,
+  clock: FakeClock,
+  options: { loginId: string; role?: "admin" | "member"; name?: string },
+): Promise<{ inviteId: string; token: string }> {
+  const inviteId = randomUUID();
+  const token = b64u(32);
+  await admin.client
+    .post("/invites", {
+      id: inviteId,
+      token,
+      loginId: options.loginId,
+      name: options.name ?? options.loginId,
+      role: options.role ?? "member",
+      expiresAt: new Date(Date.now() + 72 * 60 * 60_000 - 60_000).toISOString(),
+      secretEnc: aesBlob(),
+      inviterMac: b64u(32),
+      totpCode: totpCode(admin.totpSecret, clock),
+    })
+    .expect(201);
+  return { inviteId, token };
+}
+
+// 초대받은 사람이 링크로 가입하고 2단계 인증까지 마친다.
+export async function acceptInvite(
+  app: NestExpressApplication,
+  token: string,
+  loginId: string,
+  clock: FakeClock,
+): Promise<SignedInUser> {
+  const client = new Client(app);
+  const material = accountMaterial();
+  await client
+    .post("/invites/accept", { ...material, token, acceptMac: b64u(32), inviterTrustRecordEnc: aesBlob(200) })
+    .expect(200);
+  return finishEnrollment(client, material, loginId, clock);
+}
+
+// 묶음 열쇠 사본 하나(형식만 맞는 가짜 RSA 사본과 서명)
+export function grant(userId: string, permission: "view" | "edit" = "edit", isMember = true) {
+  return { userId, permission, isMember, wrappedKey: rsaBlob(), shareSignature: sigBlob() };
+}

@@ -15,7 +15,8 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "migration:run": "typeorm migration:run -d dist/data-source.js",
     "migration:generate": "typeorm migration:generate -d dist/data-source.js",
-    "secrets:init": "node src/cli/secrets-init.ts"
+    "secrets:init": "node src/cli/secrets-init.ts",
+    "totp:reset": "node src/cli/totp-reset.ts"
   },
   "license": "ISC",
   "dependencies": {

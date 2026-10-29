@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { AccountsModule } from "./accounts/accounts.module.js";
 import { AuditModule } from "./audit/audit.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { CategoriesModule } from "./categories/categories.module.js";
@@ -11,6 +12,7 @@ import { readAppEnv } from "./config/read-app-env.js";
 import { buildDataSourceOptions } from "./database/typeorm.options.js";
 import { HealthModule } from "./health/health.module.js";
 import { LicensesModule } from "./licenses/licenses.module.js";
+import { VaultModule } from "./vault/vault.module.js";
 import { APP_ENV, SecurityModule } from "./security/security.module.js";
 
 @Module({
@@ -34,6 +36,8 @@ import { APP_ENV, SecurityModule } from "./security/security.module.js";
     }),
     AuditModule,
     AuthModule,
+    AccountsModule,
+    VaultModule,
     HealthModule,
     CategoriesModule,
     LicensesModule,
