@@ -33,8 +33,12 @@ export class AddAccountsAndVault1793255909792 implements MigrationInterface {
         locked_until timestamptz,
         last_login_at timestamptz,
         invited_by uuid REFERENCES users(id) ON DELETE SET NULL,
+        -- 관리자 승인 서명: 확인된 관리자가 이 사람의 ID·아이디·공개키들에 서명한 값. 첫 관리자는 자기 서명이다.
+        admin_grant_sig text,
+        admin_granted_by uuid REFERENCES users(id) ON DELETE SET NULL,
         created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT users_admin_grant_chk CHECK (role <> admin OR admin_grant_sig IS NOT NULL)
       )
     `);
 

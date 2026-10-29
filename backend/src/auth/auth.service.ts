@@ -105,6 +105,8 @@ export class AuthService implements OnModuleInit {
       lockedUntil: null,
       lastLoginAt: null,
       invitedBy: profile.invitedBy,
+      adminGrantSig: null,
+      adminGrantedBy: null,
     });
   }
 
@@ -118,6 +120,8 @@ export class AuthService implements OnModuleInit {
       role: "admin",
       invitedBy: null,
     });
+    user.adminGrantSig = dto.adminGrantSig;
+    user.adminGrantedBy = user.id;
     await this.dataSource.transaction(async (manager) => {
       // 두 사람이 동시에 설정해도 한 명만 성공하도록 users 표를 잠근 뒤 0명인지 다시 본다.
       await manager.query("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE");

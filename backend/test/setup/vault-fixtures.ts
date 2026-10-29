@@ -101,7 +101,9 @@ export async function setupFirstAdmin(
   if (!code) throw new Error("사용자 표가 비어 있지 않아 처음 설정 코드를 만들 수 없습니다.");
   const client = new Client(app);
   const material = accountMaterial();
-  await client.post("/auth/setup", { ...material, setupCode: code, loginId, name: "관리자" }).expect(200);
+  await client
+    .post("/auth/setup", { ...material, setupCode: code, loginId, name: "관리자", adminGrantSig: sigBlob() })
+    .expect(200);
   return finishEnrollment(client, material, loginId, clock);
 }
 
@@ -142,8 +144,8 @@ export async function quickSession(
   await ds.query(
     `INSERT INTO users (id, login_id, name, role, status, kdf_salt, kdf_params, auth_hash, auth_salt,
        recovery_auth_hash, recovery_auth_salt, account_key_master, account_key_recovery,
-       enc_public_key, enc_private_key, sign_public_key, sign_private_key)
-     VALUES ($1, $2, '시험', $3, 'active', $4, $5, 'x', 'x', 'x', 'x', $6, $7, $8, $9, $10, $11)`,
+       enc_public_key, enc_private_key, sign_public_key, sign_private_key, admin_grant_sig)
+     VALUES ($1, $2, '시험', $3, 'active', $4, $5, 'x', 'x', 'x', 'x', $6, $7, $8, $9, $10, $11, $12)`,
     [
       material.id,
       `user-${material.id.slice(0, 8)}`,
@@ -156,6 +158,7 @@ export async function quickSession(
       material.encPrivateKey,
       material.signPublicKey,
       material.signPrivateKey,
+      role === "admin" ? sigBlob() : null,
     ],
   );
   const token = randomToken();

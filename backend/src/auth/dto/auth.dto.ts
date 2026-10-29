@@ -18,6 +18,7 @@ import {
   B64U_16,
   IsAesBlob,
   IsB64u32,
+  IsSignature,
   IsSpki,
   LOGIN_ID,
 } from "../../common/crypto-formats.js";
@@ -97,6 +98,10 @@ export class SetupDto extends AccountMaterialDto {
   @Transform(toTrim)
   @IsString() @MinLength(1, { message: "이름을 입력하세요." }) @MaxLength(100)
   name: string;
+
+  // 첫 관리자가 자기 서명 열쇠로 자기 관리자 승인에 서명한 값
+  @IsSignature()
+  adminGrantSig: string;
 }
 
 export class LoginDto extends LoginIdDto {

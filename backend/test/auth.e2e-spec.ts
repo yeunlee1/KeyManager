@@ -13,6 +13,7 @@ import {
   aesBlob,
   b64u,
   finishEnrollment,
+  sigBlob,
   setupFirstAdmin,
   signIn,
   totpCode,
@@ -41,7 +42,7 @@ describe("계정 절차", () => {
     const client = new Client(app);
     expect((await client.get("/auth/status").expect(200)).body).toEqual({ setupRequired: true });
     await client
-      .post("/auth/setup", { ...accountMaterial(), setupCode: "WRONGCODE0", loginId: "admin", name: "관리자" })
+      .post("/auth/setup", { ...accountMaterial(), setupCode: "WRONGCODE0", loginId: "admin", name: "관리자", adminGrantSig: sigBlob() })
       .expect(403);
     expect(await ds.query("SELECT id FROM users")).toHaveLength(0);
   });
@@ -55,7 +56,7 @@ describe("계정 절차", () => {
     expect(me.body.accountKeyMaster).toBe(admin.material.accountKeyMaster);
     expect(me.body).not.toHaveProperty("authHash");
     await new Client(app)
-      .post("/auth/setup", { ...accountMaterial(), setupCode: code, loginId: "other", name: "다른 사람" })
+      .post("/auth/setup", { ...accountMaterial(), setupCode: code, loginId: "other", name: "다른 사람", adminGrantSig: sigBlob() })
       .expect(403);
     expect((await new Client(app).get("/auth/status").expect(200)).body).toEqual({ setupRequired: false });
   });
@@ -63,7 +64,7 @@ describe("계정 절차", () => {
   it("2단계 인증 등록 전 세션으로는 내 정보·라이선스 API를 쓸 수 없다", async () => {
     const code = await app.get(SetupCodeService).refresh();
     const client = new Client(app);
-    await client.post("/auth/setup", { ...accountMaterial(), setupCode: code, loginId: "admin", name: "관리자" }).expect(200);
+    await client.post("/auth/setup", { ...accountMaterial(), setupCode: code, loginId: "admin", name: "관리자", adminGrantSig: sigBlob() }).expect(200);
     await client.get("/auth/me").expect(403);
     await client.get("/items").expect(403);
   });
@@ -208,7 +209,7 @@ describe("계정 절차", () => {
     const code = await app.get(SetupCodeService).refresh();
     const client = new Client(app);
     const res = await client
-      .post("/auth/setup", { ...accountMaterial(), setupCode: code, loginId: "admin", name: "관리자" })
+      .post("/auth/setup", { ...accountMaterial(), setupCode: code, loginId: "admin", name: "관리자", adminGrantSig: sigBlob() })
       .expect(200);
     const cookie = String(res.headers["set-cookie"]);
     expect(cookie).toContain("HttpOnly");

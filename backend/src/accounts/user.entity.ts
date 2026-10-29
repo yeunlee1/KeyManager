@@ -92,6 +92,13 @@ export class User {
   @Column({ name: "invited_by", type: "uuid", nullable: true })
   invitedBy: string | null;
 
+  // 관리자 승인 서명과 서명한 관리자. 관리자 브라우저는 이 서명이 확인된 관리자의 것일 때만 관리자로 믿는다.
+  @Column({ name: "admin_grant_sig", type: "text", nullable: true })
+  adminGrantSig: string | null;
+
+  @Column({ name: "admin_granted_by", type: "uuid", nullable: true })
+  adminGrantedBy: string | null;
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 
