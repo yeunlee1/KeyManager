@@ -11,7 +11,8 @@ const buttonVariants = cva(
         default:
           "bg-blue-600 text-white shadow-xs shadow-blue-200 hover:bg-blue-700 dark:bg-blue-500 dark:shadow-none dark:hover:bg-blue-400",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          // coss ui 토큰에서 destructive-foreground는 '빨간 글자색'이라 빨간 바탕 위 글자는 흰색으로 둔다(coss 위험 버튼과 같음).
+          "bg-destructive text-white hover:bg-destructive/90",
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:

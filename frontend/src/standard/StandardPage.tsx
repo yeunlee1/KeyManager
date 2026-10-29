@@ -262,7 +262,7 @@ function RegisterDialog() {
           <Field>
             <FieldLabel>제품 키</FieldLabel>
             <Input className="font-mono" placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" />
-            <FieldDescription>붙여 넣으면 하이픈은 자동으로 맞춰져요.</FieldDescription>
+            <FieldDescription>XXXXX-XXXXX-XXXXX-XXXXX-XXXXX 형식으로 25자리를 입력하세요.</FieldDescription>
           </Field>
         </DialogPanel>
         <DialogFooter>

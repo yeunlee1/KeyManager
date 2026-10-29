@@ -151,7 +151,7 @@
  * 색 체계는 coss ui의 @coss/colors-neutral(https://coss.com/ui/r/colors-neutral.json)을 그대로 따른다.
  * coss ui: MIT License, Copyright (c) 2025 coss.com, Originally Copyright (c) 2025 Origin UI
  * (https://github.com/cosscom/ui/blob/main/LICENSE)
- * KeyManager가 바꾼 값은 포인트 색(primary·ring)과 모서리(radius) 뿐이며, 각 줄에 표시한다.
+ * KeyManager가 바꾼 값은 포인트 색(primary·ring), 위험 색(destructive), 모서리(radius) 뿐이며, 각 줄에 표시한다.
  */
 :root {
   --radius: 0.625rem;
@@ -171,7 +171,8 @@
   --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-black));
   --accent: --alpha(var(--color-black) / 4%);
   --accent-foreground: var(--color-neutral-800);
-  --destructive: var(--color-red-500);
+  /* KeyManager: 위험 버튼·배지의 흰 글자가 4.5:1을 넘도록 한 단계 진한 빨강 (coss 기본은 red-500, 흰 글자 대비 약 3.8:1) */
+  --destructive: var(--color-red-600);
   --destructive-foreground: var(--color-red-700);
   --info: var(--color-blue-500);
   --info-foreground: var(--color-blue-700);
@@ -202,7 +203,8 @@
   --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-white));
   --accent: --alpha(var(--color-white) / 4%);
   --accent-foreground: var(--color-neutral-100);
-  --destructive: color-mix(in srgb, var(--color-red-500) 90%, var(--color-white));
+  /* KeyManager: 흰 글자 대비 4.5:1 이상 (coss 기본은 red-500에 흰색 10%를 섞은 색, 흰 글자 대비 약 3.5:1) */
+  --destructive: var(--color-red-600);
   --destructive-foreground: var(--color-red-400);
   --info: var(--color-blue-500);
   --info-foreground: var(--color-blue-400);
@@ -232,6 +234,19 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* 움직임 줄이기를 켠 사용자에게는 반복 애니메이션(로딩 아이콘 회전, 스켈레톤 반짝임 등)과 전환을 멈춘다.
+     로딩은 움직임 대신 글자와 aria-label(불러오는 중)로 알린다. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
