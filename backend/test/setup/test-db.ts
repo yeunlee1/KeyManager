@@ -6,6 +6,9 @@ import { buildDataSourceOptions } from "../../src/database/typeorm.options.js";
 
 export const TEST_DB_NAME = "keymanager_test";
 
+// 시험 전용 서버 비밀 열쇠. 개발용 .env 값과 관계없이 늘 같은 값으로 시험한다.
+export const TEST_APP_SECRET_KEY = Buffer.alloc(32, 1).toString("base64");
+
 // 시험 DB 밖을 건드리는 사고를 막는 공통 검사. 연결을 열기 직전과 테이블을 비우기 직전에 부른다.
 function assertTestDatabase(name: unknown): void {
   if (name !== TEST_DB_NAME) {
@@ -18,6 +21,9 @@ function assertTestDatabase(name: unknown): void {
 export function loadTestEnv(): AppEnv {
   dotenv.config({ quiet: true });
   process.env.DB_NAME = TEST_DB_NAME;
+  process.env.APP_SECRET_KEY = TEST_APP_SECRET_KEY;
+  // supertest는 http로 요청하므로 Secure 쿠키를 돌려보내지 않는다. 시험에서만 끈다.
+  process.env.COOKIE_SECURE = "false";
   const env = validateEnv(process.env);
   assertTestDatabase(env.DB_NAME);
   return env;
