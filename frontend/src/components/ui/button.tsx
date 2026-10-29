@@ -1,5 +1,7 @@
 "use client";
 
+// KeyManager 변경: 처리 중(loading)에는 Base UI Button의 focusableWhenDisabled로 막아 키보드 초점이 버튼에 남게 했다(Base UI 1.9 Button 문서의 처리 중 예시). coss ui를 다시 받으면 이 변경을 다시 적용한다.
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -88,9 +90,11 @@ export function Button({
     type: typeValue,
   };
 
-  return useRender({
-    defaultTagName: "button",
-    props: mergeProps<"button">(defaultProps, props),
-    render,
-  });
+  return (
+    <ButtonPrimitive
+      {...mergeProps<"button">(defaultProps, props)}
+      focusableWhenDisabled={loading}
+      render={render}
+    />
+  );
 }

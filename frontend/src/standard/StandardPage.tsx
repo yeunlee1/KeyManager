@@ -78,21 +78,21 @@ import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "@/compon
 
 // ── 견본 데이터 (실제 API와 연결되지 않은 시연용 값) ─────────────────
 
-const COLOR_TOKENS: { name: string; usage: string; swatch: string; text?: string }[] = [
-  { name: "background", usage: "페이지 바탕", swatch: "bg-background", text: "text-foreground" },
-  { name: "foreground", usage: "본문 글자", swatch: "bg-foreground", text: "text-background" },
-  { name: "card", usage: "표·상자 바탕", swatch: "bg-card", text: "text-card-foreground" },
-  { name: "primary", usage: "주요 행동(등록·저장)", swatch: "bg-primary", text: "text-primary-foreground" },
-  { name: "secondary", usage: "보조 버튼 바탕", swatch: "bg-secondary", text: "text-secondary-foreground" },
-  { name: "muted", usage: "약한 바탕(필터 묶음)", swatch: "bg-muted", text: "text-foreground" },
-  { name: "muted-foreground", usage: "보조 설명 글자", swatch: "bg-muted-foreground", text: "text-background" },
-  { name: "accent", usage: "마우스를 올린 항목", swatch: "bg-accent", text: "text-accent-foreground" },
-  { name: "success", usage: "완료·사용 중", swatch: "bg-success", text: "text-white" },
-  { name: "warning", usage: "주의", swatch: "bg-warning", text: "text-white" },
-  { name: "info", usage: "안내", swatch: "bg-info", text: "text-white" },
-  { name: "destructive", usage: "삭제·오류", swatch: "bg-destructive", text: "text-white" },
-  { name: "border", usage: "구분선·테두리", swatch: "bg-border", text: "text-foreground" },
-  { name: "ring", usage: "키보드 초점 테두리", swatch: "bg-ring", text: "text-white" },
+const COLOR_TOKENS: { name: string; usage: string; swatch: string }[] = [
+  { name: "background", usage: "페이지 바탕", swatch: "bg-background" },
+  { name: "foreground", usage: "본문 글자", swatch: "bg-foreground" },
+  { name: "card", usage: "표·상자 바탕", swatch: "bg-card" },
+  { name: "primary", usage: "주요 행동(등록·저장)", swatch: "bg-primary" },
+  { name: "secondary", usage: "보조 버튼 바탕", swatch: "bg-secondary" },
+  { name: "muted", usage: "약한 바탕(필터 묶음)", swatch: "bg-muted" },
+  { name: "muted-foreground", usage: "보조 설명 글자", swatch: "bg-muted-foreground" },
+  { name: "accent", usage: "마우스를 올린 항목", swatch: "bg-accent" },
+  { name: "success", usage: "완료·사용 중", swatch: "bg-success" },
+  { name: "warning", usage: "주의", swatch: "bg-warning" },
+  { name: "info", usage: "안내", swatch: "bg-info" },
+  { name: "destructive", usage: "삭제·오류", swatch: "bg-destructive" },
+  { name: "border", usage: "구분선·테두리", swatch: "bg-border" },
+  { name: "ring", usage: "키보드 초점 테두리", swatch: "bg-ring" },
 ];
 
 const CATEGORY_ITEMS = [
@@ -130,8 +130,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className="scroll-mt-20 py-10">
-      <h2 id={id} className="font-heading font-semibold text-lg">
+    <section aria-labelledby={id} className="py-10">
+      {/* 고정 머리글(약 105px)에 제목이 가리지 않게 목차 이동 위치를 아래로 둔다. */}
+      <h2 id={id} className="scroll-mt-32 font-heading font-semibold text-lg">
         {title}
       </h2>
       <p className="mt-1 max-w-3xl text-muted-foreground text-sm">{rule}</p>
@@ -378,10 +379,11 @@ export default function StandardPage() {
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 {COLOR_TOKENS.map((token) => (
                   <li key={token.name} className="overflow-hidden rounded-lg border">
-                    <div className={`flex h-16 items-end px-3 pb-2 ${token.swatch} ${token.text ?? ""}`}>
-                      <span className="font-mono text-xs">{token.name}</span>
+                    <div className={`h-14 border-b ${token.swatch}`} aria-hidden />
+                    <div className="px-3 py-2">
+                      <p className="font-mono text-xs">{token.name}</p>
+                      <p className="text-sm">{token.usage}</p>
                     </div>
-                    <p className="px-3 py-2 text-sm">{token.usage}</p>
                   </li>
                 ))}
               </ul>
@@ -410,7 +412,7 @@ export default function StandardPage() {
             <Section
               id="buttons"
               title="버튼"
-              rule="한 영역에 주요 버튼(default)은 하나만 둔다. 되돌릴 수 없는 행동은 destructive, 그 밖의 보조 행동은 outline·ghost를 쓴다. 처리 중에는 loading으로 중복 클릭을 막는다."
+              rule="한 영역에 주요 버튼(default)은 하나만 둔다. 되돌릴 수 없는 행동은 destructive, 그 밖의 보조 행동은 outline·ghost를 쓴다. 처리 중에는 loading으로 중복 클릭과 폼 재제출을 막고, 초점은 버튼에 남긴다."
             >
               <div className="flex flex-wrap items-center gap-3">
                 <Button>등록</Button>
@@ -426,7 +428,13 @@ export default function StandardPage() {
                 <Button>기본</Button>
                 <Button size="lg">크게</Button>
                 <Button disabled>비활성</Button>
-                <Button loading={loadingDemo} onClick={() => setLoadingDemo((v) => !v)}>
+                <Button
+                  loading={loadingDemo}
+                  onClick={() => {
+                    setLoadingDemo(true);
+                    window.setTimeout(() => setLoadingDemo(false), 1500);
+                  }}
+                >
                   처리 중 보기
                 </Button>
                 <Button variant="outline" size="icon" aria-label="사용자 추가">
@@ -495,7 +503,7 @@ export default function StandardPage() {
                 <Badge variant="outline">미사용</Badge>
                 <Badge variant="info">안내</Badge>
                 <Badge variant="warning">만료 임박</Badge>
-                <Badge variant="destructive">오류</Badge>
+                <Badge variant="error">오류</Badge>
                 <Badge variant="secondary">MS Office</Badge>
                 <span className="ml-2 inline-flex items-center gap-2 text-muted-foreground text-sm">
                   <Spinner /> 불러오는 중

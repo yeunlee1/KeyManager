@@ -151,7 +151,7 @@
  * 색 체계는 coss ui의 @coss/colors-neutral(https://coss.com/ui/r/colors-neutral.json)을 그대로 따른다.
  * coss ui: MIT License, Copyright (c) 2025 coss.com, Originally Copyright (c) 2025 Origin UI
  * (https://github.com/cosscom/ui/blob/main/LICENSE)
- * KeyManager가 바꾼 값은 포인트 색(primary·ring), 위험 색(destructive), 모서리(radius) 뿐이며, 각 줄에 표시한다.
+ * KeyManager가 바꾼 값은 포인트 색(primary·ring), 위험 색(destructive), 다크 모드 흐린 글자(muted-foreground), 모서리(radius) 뿐이며, 각 줄에 표시한다.
  */
 :root {
   --radius: 0.625rem;
@@ -200,7 +200,8 @@
   --secondary: --alpha(var(--color-white) / 4%);
   --secondary-foreground: var(--color-neutral-100);
   --muted: --alpha(var(--color-white) / 4%);
-  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-white));
+  /* KeyManager: 카드·키 표시처럼 조금 밝은 바탕 위에서도 4.5:1을 넘도록 한 단계 밝게 (coss 기본은 neutral-500에 흰색 10%, 바탕 대비 약 4.6:1) */
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 80%, var(--color-white));
   --accent: --alpha(var(--color-white) / 4%);
   --accent-foreground: var(--color-neutral-100);
   /* KeyManager: 흰 글자 대비 4.5:1 이상 (coss 기본은 red-500에 흰색 10%를 섞은 색, 흰 글자 대비 약 3.5:1) */

@@ -1,5 +1,7 @@
 "use client";
 
+// KeyManager 변경: Base UI 토스트 영역의 기본 이름(Notifications)을 한국어(알림)로 바꿨다. coss ui를 다시 받으면 이 문구를 다시 적용한다.
+
 import { Toast } from "@base-ui/react/toast";
 import {
   CircleAlertIcon,
@@ -76,6 +78,7 @@ function Toasts({
   return (
     <Toast.Portal data-slot="toast-portal" {...portalProps}>
       <Toast.Viewport
+        aria-label="알림"
         className={cn(
           "fixed z-60 mx-auto flex w-[calc(100%-var(--toast-inset)*2)] max-w-90 [--toast-inset:--spacing(4)] sm:[--toast-inset:--spacing(8)]",
           // Vertical positioning
@@ -197,6 +200,7 @@ function AnchoredToasts({
   return (
     <Toast.Portal data-slot="toast-portal-anchored" {...portalProps}>
       <Toast.Viewport
+        aria-label="알림"
         className="outline-none"
         data-slot="toast-viewport-anchored"
       >
