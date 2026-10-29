@@ -24,7 +24,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/components/ui/button.tsx", "src/components/ui/badge.tsx"],
+    files: ["src/components/legacy/button.tsx", "src/components/legacy/badge.tsx"],
     rules: {
       "react-refresh/only-export-components": ["error", {
         allowConstantExport: true,
