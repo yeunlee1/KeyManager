@@ -380,13 +380,49 @@
         "priority": "high",
         "subtasks": [],
         "updatedAt": "2026-10-30T05:57:10.063Z"
+      },
+      {
+        "id": "9",
+        "title": "GitHub 기본 브랜치를 develop으로 변경",
+        "description": "yeunlee1/KeyManager의 기본 브랜치를 main에서 develop으로 바꿔 새 PR이 develop을 향하게 한다.",
+        "details": "사용자 요청 원문: \"기본브랜치를 디벨롭으로 변경하고 어차피 한번 합쳐야되는데 합쳐\" (2026-10-30). 짝 없이 Claude 혼자 진행.",
+        "testStrategy": "gh repo view로 defaultBranchRef가 develop인지 확인",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-30T06:03:28.437Z"
+      },
+      {
+        "id": "10",
+        "title": "원본 저장소 main의 580d26a 커밋을 develop에 병합",
+        "description": "upstream(KimGiJeong1101/KeyManager) main에만 있는 580d26a(이력·휴지통·CSV·메모, Vite 이전, 통합 테스트)를 develop에 합친다. 우리 쪽은 NestJS·React 19로 구조를 바꿨으므로 충돌 범위를 먼저 조사한다.",
+        "details": "사용자 요청 원문: \"기본브랜치를 디벨롭으로 변경하고 어차피 한번 합쳐야되는데 합쳐\" (2026-10-30). 짝 없이 Claude 혼자 진행. 작업 브랜치는 origin/develop에서 딴다.",
+        "testStrategy": "충돌 해결 뒤 백엔드·프론트 시험·린트·빌드, 충돌 표시 문자열 0건 확인",
+        "status": "cancelled",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-10-30T06:10:22.691Z"
+      },
+      {
+        "id": "11",
+        "title": "원본 저장소 연결 정리와 tm 기록을 GitHub develop에 반영",
+        "description": "원본 저장소(KimGiJeong1101)는 신경 쓰지 않고 우리 저장소만 관리한다. 로컬의 upstream 원격을 지우고, 로컬 develop에만 있던 tm 기록 커밋을 origin/develop에 올린다.",
+        "details": "사용자 요청 원문: \"어 그냥 우리껏만 관리해\" (2026-10-30). \"어\"는 tm 기록 커밋(3ae2e97)을 GitHub develop에 올릴지 물은 데 대한 답이다. GitHub 포크 연결 끊기는 요청받지 않아 하지 않는다.",
+        "testStrategy": "git remote -v에 origin만 남는지, origin/develop이 로컬 develop과 같은지 확인",
+        "status": "done",
+        "dependencies": [],
+        "priority": "medium",
+        "subtasks": [],
+        "updatedAt": "2026-10-30T06:10:27.712Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-10-30T05:57:10.063Z",
-      "taskCount": 8,
-      "completedCount": 6,
+      "lastModified": "2026-10-30T06:10:27.712Z",
+      "taskCount": 11,
+      "completedCount": 8,
       "tags": [
         "master"
       ]
