@@ -1,14 +1,16 @@
 # Frontend
 
-라이선스 관리 시스템의 웹 UI. React + TypeScript, Tailwind CSS로 작성된 싱글 페이지 앱(CRA/`react-scripts` 기반)이다.
+라이선스 관리 시스템의 웹 UI. React + TypeScript, Tailwind CSS로 작성하고 Vite로 실행하는 싱글 페이지 앱이다.
 
 ## 기술 스택
 
-- **React 18 + TypeScript**
-- **Tailwind CSS 3** — 다크/라이트 모드 지원 (`darkMode: "class"`, `<html>`의 `dark` 클래스로 토글)
-- **Radix UI** (`@radix-ui/react-*`) + **shadcn/ui 스타일** — Select/Dialog/AlertDialog/Label 등
-  접근성 처리된 프리미티브를 Tailwind로 스타일링 (`components/ui/`)
-- **sonner** — 토스트 알림
+- **React 19.3 + TypeScript 6.0.3 + Vite 8**
+- **Tailwind CSS 4.3 + `@tailwindcss/vite` + `tw-animate-css`** — CSS의 `@theme inline`과 `@custom-variant dark`로 토큰과 다크 모드를 관리한다. `<html>`의 `dark` 클래스로 토글한다.
+- **Vitest 5 + jsdom + Testing Library 16**, **ESLint 10** — 시험과 정적 검사
+- **coss ui**(Base UI 기반, MIT) — 기본 컴포넌트 표준. shadcn CLI로 소스를 받아 `components/ui/`에 둔다.
+  색·글자·컴포넌트·화면 패턴 기준은 [프론트 표준](../docs/프론트-표준.md)을 따른다.
+- **Radix UI** (`@radix-ui/react-*`) + **sonner** — 옛 컴포넌트(`components/legacy/`). 지금 화면이 아직 쓰고 있으며,
+  새 디자인 단계에서 화면을 coss ui로 옮긴 뒤 지운다. 새 코드에서는 쓰지 않는다.
 - **lucide-react** — 아이콘
 - **Axios** — API 통신 (`src/api/`에서 한 곳으로 모아 관리)
 - **Pretendard**(가변 폰트, 한글 지원) + **JetBrains Mono**(라이선스 키 등 고정폭 텍스트용)
@@ -23,20 +25,20 @@ frontend/src/
 ├── types/                  # 공용 타입 (Item, CategoryStat, SelectOption 등)
 │   ├── item.ts
 │   └── ui.ts
-├── components/ui/          # 도메인과 무관한 범용 컴포넌트 (shadcn/ui 스타일 + Radix 프리미티브)
-│   ├── Select.tsx / SelectField.tsx  # 네이티브 select를 대체하는 커스텀 드롭다운
-│   ├── button.tsx, badge.tsx, input.tsx, label.tsx, skeleton.tsx, table.tsx
-│   ├── dialog.tsx, alert-dialog.tsx  # Radix 기반 모달/확인창 프리미티브
-│   ├── sonner.tsx           # 토스트 컨테이너 (실제 호출은 각 화면에서 `import { toast } from "sonner"`)
-│   ├── ConfirmDialog.tsx    # alert-dialog를 감싼 삭제 확인 모달
-│   └── PaginationComponent.tsx
+├── components/ui/          # coss ui 원본 컴포넌트 24개 (button, field, select, dialog, toast, table 등)
+│                            # 고칠 때는 docs/프론트-표준.md의 "coss ui 원본을 고칠 때"를 따른다
+├── components/legacy/      # 옛 Radix·sonner 컴포넌트 (지금 라이선스 화면이 사용, 새 디자인 후 삭제 예정)
+│   ├── Select.tsx / SelectField.tsx, button.tsx, badge.tsx, input.tsx, label.tsx, skeleton.tsx, table.tsx
+│   ├── dialog.tsx, alert-dialog.tsx, ConfirmDialog.tsx, PaginationComponent.tsx
+│   └── sonner.tsx           # 토스트 컨테이너 (화면에서 `import { toast } from "sonner"`)
+├── standard/               # 프론트 표준 견본 화면 (개발 서버에서 /standard.html, 운영 빌드에는 미포함)
 ├── features/licenses/      # 라이선스 관리 도메인 로직
 │   ├── ItemList.tsx         # 메인 컴포넌트 (상태 관리, 통계 카드, 툴바)
 │   ├── ItemListDisplay.tsx  # 테이블 렌더링, 인라인 편집(사용자명), 빈 상태
 │   ├── RegisterModal.tsx    # 라이선스 등록 모달
 │   └── SearchComponent.tsx  # 검색 필드 선택 + 검색어 입력
 ├── App.tsx                  # 헤더, 다크모드 토글, 연결 상태 배지
-├── config.ts                 # API 서버 주소 (REACT_APP_API_URL)
+├── config.ts                 # API 서버 주소 (VITE_API_URL)
 ├── index.css                 # Tailwind 베이스 + 라이트/다크 컬러 토큰(CSS 변수)
 └── css.d.ts                  # 일반 *.css 사이드이펙트 import에 대한 앰비언트 선언
 ```
@@ -45,38 +47,43 @@ frontend/src/
 
 ### 사전 요구사항
 
-**Node.js 18.18 이상** (권장: 현재 Active LTS 버전)
+**Node.js 22.22.2 이상인 22.x, 24.15.0 이상인 24.x 또는 26 이상**. 최신 jsdom과 Vitest의 실행 조건에 맞췄으며, 이 전환은 Node.js 24.21.0에서 확인했다.
+
+TypeScript는 typescript-eslint 호환 범위에 맞춰 **6.0.3**으로 고정한다. `@types/node`는 실행 환경에 맞춰 **24.x**를 사용한다.
 
 ### 설치 및 실행
 
 ```bash
-npm install
-npm start          # http://localhost:3000
-npm run build      # 배포용 정적 빌드 (build/)
-npm test           # Jest + Testing Library
+npm ci             # 커밋된 package-lock.json으로 설치
+npm run dev        # http://localhost:3000 (포트가 사용 중이면 종료)
+npm run typecheck  # 앱·Vite 설정·시험의 TypeScript 검사
+npm run lint       # ESLint, 경고도 실패 처리
+npm test           # Vitest + Testing Library, 네트워크 없이 1회 실행
+npm run build      # 타입 검사 후 배포용 정적 빌드 (dist/)
+npm run preview    # 빌드 결과를 로컬에서 확인
+npm audit          # 개발 의존성을 포함한 알려진 취약점 검사
 ```
 
 백엔드가 `http://localhost:5000`이 아닌 다른 주소로 실행 중이라면
-`.env.example`을 복사해 `.env`로 저장하고 `REACT_APP_API_URL`을 설정한다.
+`.env.example`을 복사해 `.env`로 저장하고 `VITE_API_URL`을 설정한다. 설정이 없으면
+`http://localhost:5000`에 연결한다. `VITE_`로 시작하는 값은 브라우저에 공개되므로 비밀 값을 넣지 않는다.
+환경변수를 바꾼 뒤에는 개발 서버를 다시 실행한다.
 
 ## 주요 UI/기능 설명
 
 ### 다크/라이트 모드 (`App.tsx`)
 
 우측 상단 토글 버튼으로 전환하며, 선택값은 `localStorage`(`km-theme`)에 저장되어 다음 방문에도 유지된다.
-기본값은 다크 모드.
+저장된 값이 없으면 라이트 모드로 연다(프론트 표준: 라이트 기본, 다크는 선택).
 
 ### 컬러 테마 (`index.css`)
 
-주요 색상은 `:root`/`.dark` 블록의 CSS 변수(HSL)로 중앙 관리한다 (`--primary`, `--ring` 등).
-Primary는 차분한 블루 계열(`217 91% 60%` / 다크 `213 94% 68%`)이며, 다크 모드의 아이콘·보더
-호버 포인트로는 청록(cyan) 한 가지만 절제해서 사용한다. 과거에 있던 인디고→fuchsia→cyan
-다색 그라디언트, 강한 블러 글로우, 진한 그림자 등 "네온사인" 톤은 정리했다 — 버튼/배지/탭 색상은
-`components/ui`와 `features/licenses`의 컴포넌트 클래스에도 일부 하드코딩되어 있으므로, 색을
-다시 바꿀 때는 `index.css`의 변수뿐 아니라 해당 컴포넌트들의 `blue-*`/`cyan-*` 클래스도 함께
-확인해야 한다.
+색은 coss ui의 색 체계(`@coss/colors-neutral`)를 따르는 CSS 변수로 관리하고, 포인트 색(`--primary`, `--ring`)만
+인디고로 바꿨다. 토큰 목록과 쓰는 규칙은 [프론트 표준](../docs/프론트-표준.md)에 있다. 지금 라이선스 화면
+(`features/licenses`, `components/legacy`)은 아직 `blue-*`·`slate-*` 같은 색을 직접 쓰고 있어서, 새 디자인 단계에서
+토큰으로 옮긴다.
 
-### Select (`components/ui/Select.tsx`, `SelectField.tsx`)
+### Select (`components/legacy/Select.tsx`, `SelectField.tsx`)
 
 브라우저 기본 `<select>`는 옵션 목록(팝업)의 스타일을 CSS로 제어할 수 없어 다크 모드에서
 배경만 어둡고 목록은 OS 기본 스타일로 뜨는 문제가 있었다. `@radix-ui/react-select` 프리미티브를
@@ -100,7 +107,7 @@ Tailwind의 `group` / `group-hover` 조합으로 순수 CSS 슬라이드 애니�
 (`translate-y-full → translate-y-0`)한다. 터치 기기는 hover가 없어 클릭으로도 토글 가능.
 우측 하단의 작은 셰브론 아이콘은 "펼쳐볼 수 있다"는 발견성 힌트.
 
-### 페이지네이션 그룹 (`components/ui/PaginationComponent.tsx`)
+### 페이지네이션 그룹 (`components/legacy/PaginationComponent.tsx`)
 
 페이지 번호를 `pagesToShow(=5)` 단위로 그룹화해 표시한다.
 
@@ -115,13 +122,14 @@ currentGroupFirstPage = floor((currentPage - 1) / pagesToShow) * pagesToShow + 1
 목록이 0건일 때, "검색/필터 때문에 안 보이는 것"과 "애초에 데이터가 없는 것"을 구분해서
 서로 다른 안내 문구 + 액션 버튼("필터 초기화" / "새 라이선스 등록")을 보여준다.
 
-### 테이블 열 너비 고정 (`components/ui/table.tsx`, `ItemListDisplay.tsx`)
+### 테이블 열 너비 고정 (`components/legacy/table.tsx`, `ItemListDisplay.tsx`)
 
 `Table`은 `table-fixed` 레이아웃을 쓴다. 기본값인 `table-auto`는 열 너비를 **현재 화면에 보이는
 행의 내용**으로 계산하기 때문에, 사용자명이 긴 행이 있는 페이지와 짧은 페이지 사이에서 카테고리/관리
 칸 위치가 좌우로 흔들리는 문제가 있었다. 번호/카테고리/사용자/관리 칸에 고정 너비를 주고 "라이선스 키"
 칸만 남은 공간을 흡수하도록 했고, 칸보다 긴 카테고리/사용자명은 늘어나는 대신 말줄임(`truncate`) +
-`title` 툴팁으로 처리한다.
+`title` 툴팁으로 처리한다. 작은 화면에서는 표의 최소 너비를 유지하고 목록 영역 안에서 가로로
+스크롤한다. 목록 영역에 키보드 초점을 둔 뒤 방향키로도 이동할 수 있다.
 
 ### 중복 요청 방지 (`ItemList.tsx`, `ItemListDisplay.tsx`, `RegisterModal.tsx`, `ConfirmDialog.tsx`)
 
@@ -139,16 +147,13 @@ VSCode가 워크스페이스의 로컬 TypeScript(`node_modules/typescript`)가 
 
 ### `*.css` import에서 "Cannot find module" (TS2882)
 
-TypeScript 6.0부터 `noUncheckedSideEffectImports`가 기본 `true`가 되어, 선언되지 않은
-사이드이펙트 import(`import './index.css'` 등)를 에러로 처리한다. CRA 기본 타입 선언은
-`*.module.css`(CSS Modules)만 선언하고 일반 `*.css`는 선언하지 않아서 생기는 문제로,
-`src/css.d.ts`에 `declare module "*.css";`를 추가해 해결해뒀다.
+Vite의 CSS 타입은 `src/vite-env.d.ts`에서 불러온다. 일반 CSS import를 위한 기존
+`src/css.d.ts` 선언도 유지한다.
 
 ### `npm install` 시 ERESOLVE 에러
 
-`react-scripts@5.0.1`은 `typescript` peerDependency를 `^3.2.1 || ^4`로 선언하지만, 이 프로젝트는
-의도적으로 typescript 5.x를 사용한다(빌드/테스트/런타임 검증 완료). `.npmrc`의
-`legacy-peer-deps=true`가 이 알려진 불일치를 우회하도록 이미 설정되어 있다.
+CRA와 `legacy-peer-deps` 설정은 제거했다. 설치 오류가 나면 Node 버전과 오류에 표시된
+peer 의존성을 확인한다. 재현 가능한 설치에는 커밋된 잠금 파일과 `npm ci`를 사용한다.
 
 ### 카테고리 통계가 갱신되지 않을 때
 
